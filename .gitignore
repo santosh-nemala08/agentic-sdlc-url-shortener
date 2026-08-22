@@ -1,0 +1,22 @@
+# Build output
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and runtime artifacts produced by the orchestrator/scenario runners
+/artifacts/
+*.log
+
+# Env
+.env
