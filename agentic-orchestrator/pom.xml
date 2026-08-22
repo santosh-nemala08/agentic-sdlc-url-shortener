@@ -41,6 +41,18 @@
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
         </dependency>
+        <!--
+            Forced explicitly: Spring Boot's dependencyManagement BOM (imported
+            in the parent pom) pins logback-core to a version older than the
+            logback-classic release above, and logback-classic 1.5.x is not
+            binary-compatible with logback-core < 1.5. Without this override
+            Maven resolves the mismatched pair and logging fails at class-init.
+        -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
