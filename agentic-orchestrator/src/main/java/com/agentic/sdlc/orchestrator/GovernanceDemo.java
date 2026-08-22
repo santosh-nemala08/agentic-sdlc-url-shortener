@@ -72,6 +72,7 @@ public final class GovernanceDemo {
 
         WorkflowEngine engine = new WorkflowEngine(graph, 4);
         WorkflowExecutionReport report = engine.execute(new WorkflowContext("governance-demo", "n/a"));
+        engine.shutdown();
 
         System.out.println("== Gated pipeline ==");
         report.statuses().forEach((id, status) -> System.out.printf("  %-18s -> %s%n", id, status));
@@ -101,6 +102,7 @@ public final class GovernanceDemo {
         engine.safeStopController().requestStop("operator abort for demo purposes");
 
         joinUninterruptibly(runner);
+        engine.shutdown();
     }
 
     private static com.agentic.sdlc.orchestrator.execution.StageExecutor slowSuccess(long millis) {

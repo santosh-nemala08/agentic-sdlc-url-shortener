@@ -62,6 +62,7 @@ public final class ObservabilityDemo {
                 .build();
 
         WorkflowExecutionReport report = engine.execute(new WorkflowContext(workflowId, "n/a"));
+        engine.shutdown();
 
         ReliabilityMetrics metrics = MetricsCollector.compute(
                 report.startedAt(), report.finishedAt(), report.statuses(), auditLog.events());

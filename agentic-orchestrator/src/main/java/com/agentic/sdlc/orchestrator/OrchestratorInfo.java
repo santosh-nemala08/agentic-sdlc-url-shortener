@@ -46,6 +46,7 @@ public final class OrchestratorInfo {
 
         WorkflowEngine engine = new WorkflowEngine(graph, 4);
         WorkflowExecutionReport report = engine.execute(new WorkflowContext("demo-1", "n/a"));
+        engine.shutdown();
 
         System.out.printf("%s v%s -- demo workflow finished in %dms, allSucceeded=%s%n",
                 MODULE_NAME, VERSION, report.duration().toMillis(), report.allSucceeded());

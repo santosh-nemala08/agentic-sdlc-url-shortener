@@ -3,6 +3,7 @@ package com.agentic.sdlc.orchestrator.graph;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -99,7 +100,13 @@ public final class DependencyGraph {
                 }
             }
             List<StageId> order = topologicalSort();
-            return new DependencyGraph(Map.copyOf(stages), order);
+            // Deliberately not Map.copyOf(stages): the JDK's immutable-map
+            // iteration order is unspecified (and randomized per JVM run),
+            // which would make stage submission order -- and therefore which
+            // stage a bounded thread pool happens to run first -- silently
+            // nondeterministic. This graph's insertion order is meaningful
+            // and must survive being made unmodifiable.
+            return new DependencyGraph(Collections.unmodifiableMap(new LinkedHashMap<>(stages)), order);
         }
 
         private List<StageId> topologicalSort() {

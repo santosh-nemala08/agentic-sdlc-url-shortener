@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -111,7 +112,54 @@ public final class WorkflowEngine {
         return auditEventLog;
     }
 
+    /**
+     * Releases the executor if this engine created it (i.e. was built via
+     * a {@code maxConcurrency} constructor or without an explicit
+     * {@code executorService} on the builder). Deliberately not called
+     * automatically after {@code execute}/{@code executeIncremental}: an
+     * engine is reusable across multiple runs -- that is precisely how
+     * re-planning works, calling {@code executeIncremental} again on the
+     * same engine -- so it cannot shut its executor down after just one.
+     * Call this once the engine is truly done being used. If the executor
+     * was supplied externally, the caller owns its lifecycle and this is
+     * a no-op.
+     */
+    public void shutdown() {
+        if (ownsExecutor) {
+            executorService.shutdown();
+        }
+    }
+
     public WorkflowExecutionReport execute(WorkflowContext context) {
+        return runInternal(context, Map.of());
+    }
+
+    /**
+     * Re-runs only the stages a prior run's results cannot be trusted for.
+     * {@code reusableResults} should be the {@link WorkflowExecutionReport#results()}
+     * from a previous {@code execute}/{@code executeIncremental} call against
+     * the same {@code context} (artifacts from reused stages are still
+     * sitting in the context from that prior run, since context is expected
+     * to be the same instance across a replan); {@code staleStages} is
+     * typically the output of {@link com.agentic.sdlc.orchestrator.replanning.RePlanner#computeStaleStages}.
+     * Anything in {@code reusableResults} that is not in {@code staleStages}
+     * is injected as an already-succeeded completion instead of being
+     * re-executed -- it never touches its guardrails, approval gate, or
+     * executor again.
+     */
+    public WorkflowExecutionReport executeIncremental(WorkflowContext context,
+                                                        Map<StageId, StageResult> reusableResults,
+                                                        Set<StageId> staleStages) {
+        Map<StageId, StageResult> reuse = new LinkedHashMap<>();
+        for (Map.Entry<StageId, StageResult> entry : reusableResults.entrySet()) {
+            if (graph.stageIds().contains(entry.getKey()) && !staleStages.contains(entry.getKey())) {
+                reuse.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return runInternal(context, reuse);
+    }
+
+    private WorkflowExecutionReport runInternal(WorkflowContext context, Map<StageId, StageResult> reuseResults) {
         Instant startedAt = Instant.now();
         String workflowId = context.workflowId();
         Map<StageId, StageStatus> statuses = new LinkedHashMap<>();
@@ -124,52 +172,56 @@ public final class WorkflowEngine {
             remainingDeps.put(id, graph.stage(id).dependsOn().size());
         }
 
-        auditEventLog.record(AuditEvent.workflow(workflowId, AuditEventType.WORKFLOW_STARTED,
-                "Workflow started with " + graph.size() + " stage(s)"));
+        String startMessage = reuseResults.isEmpty()
+                ? "Workflow started with " + graph.size() + " stage(s)"
+                : "Workflow re-planned: reusing " + reuseResults.size() + " of " + graph.size() + " stage(s)";
+        auditEventLog.record(AuditEvent.workflow(workflowId, AuditEventType.WORKFLOW_STARTED, startMessage));
 
         BlockingQueue<StageCompletion> completions = new LinkedBlockingQueue<>();
         int totalStages = graph.size();
 
-        for (StageId root : graph.rootStages()) {
-            startOrSkip(root, context, statuses, completions);
+        for (StageId id : graph.stageIds()) {
+            StageResult reused = reuseResults.get(id);
+            if (reused != null) {
+                statuses.put(id, StageStatus.SUCCEEDED);
+                auditEventLog.record(AuditEvent.stage(workflowId, id.value(), AuditEventType.STAGE_REUSED,
+                        "Reused prior result: unaffected by the upstream change"));
+                completions.add(new StageCompletion(id, StageStatus.SUCCEEDED, reused));
+            } else if (graph.stage(id).dependsOn().isEmpty()) {
+                startOrSkip(id, context, statuses, completions);
+            }
         }
 
-        try {
-            int terminalCount = 0;
-            while (terminalCount < totalStages) {
-                StageCompletion completion = takeUninterruptibly(completions);
-                terminalCount++;
+        int terminalCount = 0;
+        while (terminalCount < totalStages) {
+            StageCompletion completion = takeUninterruptibly(completions);
+            terminalCount++;
 
-                statuses.put(completion.id(), completion.status());
-                if (completion.result() != null) {
-                    results.put(completion.id(), completion.result());
-                }
-                persistSnapshot(context, statuses, startedAt);
-
-                boolean notSucceeded = completion.status() != StageStatus.SUCCEEDED;
-                if (notSucceeded) {
-                    tainted.add(completion.id());
-                }
-
-                for (StageId dependent : graph.dependentsOf(completion.id())) {
-                    if (notSucceeded) {
-                        tainted.add(dependent);
-                    }
-                    int remaining = remainingDeps.merge(dependent, -1, Integer::sum);
-                    if (remaining == 0) {
-                        if (tainted.contains(dependent)) {
-                            StageCompletion skip = skippedDueToUpstream(dependent, workflowId);
-                            statuses.put(dependent, StageStatus.SKIPPED);
-                            completions.add(skip);
-                        } else {
-                            startOrSkip(dependent, context, statuses, completions);
-                        }
-                    }
-                }
+            statuses.put(completion.id(), completion.status());
+            if (completion.result() != null) {
+                results.put(completion.id(), completion.result());
             }
-        } finally {
-            if (ownsExecutor) {
-                executorService.shutdown();
+            persistSnapshot(context, statuses, startedAt);
+
+            boolean notSucceeded = completion.status() != StageStatus.SUCCEEDED;
+            if (notSucceeded) {
+                tainted.add(completion.id());
+            }
+
+            for (StageId dependent : graph.dependentsOf(completion.id())) {
+                if (notSucceeded) {
+                    tainted.add(dependent);
+                }
+                int remaining = remainingDeps.merge(dependent, -1, Integer::sum);
+                if (remaining == 0) {
+                    if (tainted.contains(dependent)) {
+                        StageCompletion skip = skippedDueToUpstream(dependent, workflowId);
+                        statuses.put(dependent, StageStatus.SKIPPED);
+                        completions.add(skip);
+                    } else {
+                        startOrSkip(dependent, context, statuses, completions);
+                    }
+                }
             }
         }
 
@@ -179,7 +231,7 @@ public final class WorkflowEngine {
                 "Workflow finished in " + Duration.between(startedAt, finishedAt).toMillis() + "ms"));
 
         return new WorkflowExecutionReport(workflowId, startedAt, finishedAt,
-                Map.copyOf(statuses), Map.copyOf(results));
+                Collections.unmodifiableMap(statuses), Collections.unmodifiableMap(results));
     }
 
     /**
