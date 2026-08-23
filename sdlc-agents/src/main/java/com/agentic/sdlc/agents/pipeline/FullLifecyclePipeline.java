@@ -78,32 +78,7 @@ public final class FullLifecyclePipeline {
         DependencyGraph.Builder builder =
                 SdlcPipeline.addPlanningStages(DependencyGraph.builder(), requirementAnalyzer);
 
-        CodebaseImpactAnalyzer impactAnalyzer = new CodebaseImpactAnalyzer();
-
-        StageDefinition implementationValidation = new StageDefinition(IMPLEMENTATION_VALIDATION,
-                "Check the decomposed implementation tasks against what already exists in shortener-service",
-                Set.of(SdlcPipeline.ARCHITECTURE_DESIGN),
-                ctx -> {
-                    TaskPlan plan = ctx.getArtifact(SdlcPipeline.ARTIFACT_TASK_PLAN, TaskPlan.class);
-                    List<Task> implementationTasks = plan.tasksIn(TaskCategory.IMPLEMENTATION);
-                    Map<Task, ?> impact = impactAnalyzer.analyze(implementationTasks);
-
-                    List<String> gaps = implementationTasks.stream()
-                            .filter(task -> !impact.containsKey(task))
-                            .map(Task::id)
-                            .toList();
-                    int withKnownImpact = implementationTasks.size() - gaps.size();
-
-                    ImplementationReport report =
-                            new ImplementationReport(withKnownImpact, implementationTasks.size(), gaps);
-                    ctx.putArtifact(ARTIFACT_IMPLEMENTATION_REPORT, report);
-
-                    String message = withKnownImpact + "/" + implementationTasks.size()
-                            + " implementation task(s) map to existing, already-built code"
-                            + (gaps.isEmpty() ? "" : "; gap(s) needing net-new work: " + String.join(", ", gaps));
-                    return StageResult.success(message);
-                },
-                GovernancePolicy.approvalRequired());
+        StageDefinition implementationValidation = buildImplementationValidationStage();
 
         StageDefinition testing = new StageDefinition(TESTING,
                 "Run the real shortener-service test suite",
@@ -152,5 +127,39 @@ public final class FullLifecyclePipeline {
                 .addStage(documentationCheck)
                 .addStage(releaseReadiness)
                 .build();
+    }
+
+    /**
+     * The implementation-validation stage on its own, depending only on {@link
+     * SdlcPipeline#ARCHITECTURE_DESIGN} -- extracted so other pipelines (see {@code
+     * CodeGenerationPipeline}) can reuse this exact gap-detection logic instead of duplicating it.
+     */
+    public static StageDefinition buildImplementationValidationStage() {
+        CodebaseImpactAnalyzer impactAnalyzer = new CodebaseImpactAnalyzer();
+
+        return new StageDefinition(IMPLEMENTATION_VALIDATION,
+                "Check the decomposed implementation tasks against what already exists in shortener-service",
+                Set.of(SdlcPipeline.ARCHITECTURE_DESIGN),
+                ctx -> {
+                    TaskPlan plan = ctx.getArtifact(SdlcPipeline.ARTIFACT_TASK_PLAN, TaskPlan.class);
+                    List<Task> implementationTasks = plan.tasksIn(TaskCategory.IMPLEMENTATION);
+                    Map<Task, ?> impact = impactAnalyzer.analyze(implementationTasks);
+
+                    List<String> gaps = implementationTasks.stream()
+                            .filter(task -> !impact.containsKey(task))
+                            .map(Task::id)
+                            .toList();
+                    int withKnownImpact = implementationTasks.size() - gaps.size();
+
+                    ImplementationReport report =
+                            new ImplementationReport(withKnownImpact, implementationTasks.size(), gaps);
+                    ctx.putArtifact(ARTIFACT_IMPLEMENTATION_REPORT, report);
+
+                    String message = withKnownImpact + "/" + implementationTasks.size()
+                            + " implementation task(s) map to existing, already-built code"
+                            + (gaps.isEmpty() ? "" : "; gap(s) needing net-new work: " + String.join(", ", gaps));
+                    return StageResult.success(message);
+                },
+                GovernancePolicy.approvalRequired());
     }
 }

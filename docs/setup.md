@@ -14,7 +14,7 @@ mvn install
 ```
 
 This builds `agentic-orchestrator`, `sdlc-agents`, and `shortener-service` in dependency order and
-runs every module's test suite (138 tests). CI (`.github/workflows/ci.yml`) runs this same
+runs every module's test suite (149 tests). CI (`.github/workflows/ci.yml`) runs this same
 `mvn verify` on every push and pull request against `main`.
 
 ## Run the orchestrator/agent demos
@@ -36,6 +36,7 @@ mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.
 mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.AmbiguousScenarioRunner -Dexec.classpathScope=test
 mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.GuardrailBlockScenarioRunner -Dexec.classpathScope=test
 mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.FullLifecycleScenarioRunner -Dexec.classpathScope=test
+mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.CodeGenerationScenarioRunner -Dexec.classpathScope=test
 ```
 
 `-Dexec.classpathScope=test` is needed for the `sdlc-agents` demos because `WorkflowEngine` and
@@ -53,6 +54,13 @@ subprocess. It needs Maven on `PATH` (the same prerequisite as everything else h
 run from somewhere inside this repository (it locates the repo root automatically, whether that's
 the reactor root or a module directory, so it works the same from an IDE "Run" action or from
 `exec:java` at the repo root).
+
+`CodeGenerationScenarioRunner` is the genuine requirement -> code -> test -> replan -> code -> test
+chain: attempt 1's generated code really fails a real, compiled-and-executed test, the orchestrator
+computes a real stale set and re-plans, and attempt 2 really passes. Unlike
+`FullLifecycleScenarioRunner`, this one needs no Maven subprocess and finishes in well under a
+second -- it's also exercised as a real assertion-based test in the normal suite
+(`CodeGenerationPipelineTest`), not just this printed demo.
 
 ### Running the LLM-backed requirement analyzer
 
@@ -73,6 +81,21 @@ side by side. `LlmAmbiguousScenarioRunner` runs the exact same dynamic-governanc
 `AmbiguousScenarioRunner`, but with the LLM's ambiguity call driving which stage gets an approval
 gate. Without `ANTHROPIC_API_KEY` set, both fail immediately with a clear message rather than a
 raw stack trace; nothing else in this project needs that variable.
+
+### Running the LLM analyzer with a governed fallback
+
+A third runner shows the LLM path wired into the pipeline with a real, governed fallback to the
+deterministic analyzer, using the orchestrator's existing `FallbackHandler` primitive -- unlike
+the two demos above, this one is designed to succeed either way, and its output tells you honestly
+which path actually ran:
+
+```bash
+mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.ResilientLlmScenarioRunner -Dexec.classpathScope=test
+```
+
+Run it once with `ANTHROPIC_API_KEY` unset (the pipeline still completes; the decision log and
+audit trail show the fallback firing and why) and once with a real key set (the same pipeline
+completes via the actual LLM call instead) to see both paths for real.
 
 ## Run the shortener service
 

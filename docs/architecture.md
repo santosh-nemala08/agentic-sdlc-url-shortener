@@ -40,7 +40,9 @@ The critical differentiator the assignment asks for. Framework-agnostic Java —
   (`FileWorkflowStateStore` persists a fresh JSON snapshot after every stage completion).
 - **`replanning`** — `RePlanner.computeStaleStages` + `WorkflowEngine.executeIncremental`: given a
   changed upstream artifact, computes which stages are no longer trustworthy and re-executes only
-  those, reusing everything else's prior result rather than re-running from scratch.
+  those, reusing everything else's prior result rather than re-running from scratch. Proven against
+  a real multi-stage chain of consecutive reused stages (not just an isolated reused branch) by
+  `sdlc-agents`' `CodeGenerationPipeline` — see `docs/testing.md`.
 
 **Scheduling model.** `DependencyGraph.dependsOn` is the *sole* source of truth for ordering — there
 is no separate sequential/parallel flag. `WorkflowEngine` tracks a remaining-dependency count per
@@ -77,13 +79,22 @@ bounded retries, with fallback and rollback available if it still fails.
   larger pipeline can extend it rather than re-declaring it.
 - **`pipeline.FullLifecyclePipeline`** — extends that planning phase with the rest of the SDLC:
   `implementation-validation` (maps decomposed IMPLEMENTATION tasks to real existing files via
-  `CodebaseImpactAnalyzer`, approval-gated on any gap), then `testing` and `documentation-check`
+  `CodebaseImpactAnalyzer`, approval-gated), then `testing` and `documentation-check`
   running concurrently (both depend only on `implementation-validation`), joining at
   `release-readiness` (a real synchronization barrier, approval-gated, reachable only if both
   succeeded). `testing` is not a simulation: `MavenTestRunner` actually shells out to `mvn test`
   against `shortener-service` and reports its real exit code; `documentation-check` actually reads
   the standard docs off disk via `DocumentationChecker` and checks they're substantive, not just
   present. See `FullLifecycleScenarioRunner` for this graph running end to end.
+- **`pipeline.CodeGenerationPipeline`** — the genuine requirement -> code -> test chain: the
+  planning phase, then `implementation-validation` again (shared with `FullLifecyclePipeline` via
+  `buildImplementationValidationStage`), then `code-generation` -> `code-testing` -> `release-gate`.
+  `code-generation` calls a `codegen.CodeGenerator` -- `DeterministicApiKeyValidatorGenerator` by
+  default -- and `code-testing` really compiles and executes what it produced via
+  `codegen.GeneratedCodeRunner` (the JDK's own compiler plus reflection, no subprocess, nothing
+  touching `shortener-service`). See `CodeGenerationScenarioRunner`: the orchestrator's actual
+  `RePlanner`/`executeIncremental` machinery -- not a special case -- carries a generated revision
+  through a real compile-and-test cycle, reusing the four planning/validation stages untouched.
 - **`requirements.RequirementAnalyzer`** — the interface both requirement-analysis
   implementations satisfy, so everything downstream (`SdlcPipeline`, `FullLifecyclePipeline`, the
   governed engine) depends only on producing a `RequirementAnalysis`, never on how. Two
@@ -92,8 +103,16 @@ bounded retries, with fallback and rollback available if it still fails.
   - `requirements.llm.LlmRequirementAnalysisAgent` — calls the real Anthropic Messages API and
     parses its response into the same `RequirementAnalysis` shape. Opt-in only (needs
     `ANTHROPIC_API_KEY`); see `LlmRequirementAnalysisDemo` and `LlmAmbiguousScenarioRunner`.
-- **`scenario/`** — six runnable demonstrations against the real engine, each producing a durable
-  audit trail as evidence rather than a console log that vanishes with the process:
+  - `requirements.llm.ResilientRequirementAnalysisStage` — wires the LLM agent as primary with
+    the deterministic agent as a governed fallback, via the orchestrator's existing
+    `FallbackHandler` (built for exactly this "primary approach fails, try another" case, not a
+    new mechanism invented for this). The LLM agent is constructed *inside* the stage executor, so
+    a missing API key flows through the same execute-then-fallback path a live network failure
+    would, rather than needing a special case. See `ResilientLlmScenarioRunner` -- it completes
+    successfully whether or not a key is present, and its audit trail honestly records which path
+    ran.
+- **`scenario/`** — eight runnable demonstrations against the real engine, each producing a
+  durable audit trail as evidence rather than a console log that vanishes with the process:
   - `GreenfieldScenarioRunner` — build from scratch, through the planning phase.
   - `BrownfieldScenarioRunner` — enhance the existing product, through the planning phase;
     `CodebaseImpactAnalyzer` maps each decomposed task to the real `shortener-service` files it
@@ -109,6 +128,13 @@ bounded retries, with fallback and rollback available if it still fails.
   - `GuardrailBlockScenarioRunner` — `SecretLeakageGuardrail` (a real security guardrail: vetoes a
     stage if the requirement text contains an embedded credential) actually blocks a stage, with
     downstream stages transitively skipped.
+  - `ResilientLlmScenarioRunner` — the planning pipeline with `ResilientRequirementAnalysisStage`
+    in place of the plain requirement-analysis stage: succeeds identically with or without
+    `ANTHROPIC_API_KEY` set, and the decision log/audit trail honestly record which path (real LLM
+    call, or governed fallback to the deterministic agent) actually ran.
+  - `CodeGenerationScenarioRunner` — runs `CodeGenerationPipeline` through a real compile-and-test
+    cycle and a real re-plan, printing the `RePlanner`-computed stale set and the `STAGE_REUSED`
+    audit events that prove the four planning/validation stages were reused, not re-executed.
 
 The default analyzer is deliberately **rule-based, not LLM-backed**: same input always produces
 the same output, with no external API key needed for a grader to run the standard test suite or
@@ -116,7 +142,7 @@ scenarios, and results that are trivially inspectable in a test assertion rather
 probabilistic. The LLM-backed analyzer above exists specifically to prove that choice is a
 substitution, not an architectural constraint — see
 [`docs/testing.md`](testing.md#why-the-agents-are-rule-based-not-llm-backed) for the full
-reasoning and its trade-off.
+reasoning.
 
 ## `shortener-service`: the product
 
@@ -128,7 +154,7 @@ A standalone Spring Boot 3 app.
   `JpaClickStatsRepository`) against H2 (file-based, `AUTO_SERVER=TRUE` — durable across restarts,
   zero external service to install). `FirstClickInserter` isolates the one operation that needs
   `REQUIRES_NEW` semantics for concurrent-first-click correctness (see
-  [`docs/testing.md`](testing.md#the-click-counting-concurrency-bug) for why).
+  [`docs/testing.md`](testing.md#the-click-counting-concurrency-design) for why).
 - **`service`** — `ShortenerService` (create/resolve), `ShortCodeGenerator`, `UrlValidator`,
   `ClickTracker` (async click recording), `FixedWindowRateLimiter`.
 - **`api`** — `LinkController` (`POST /api/links`), `RedirectController` (`GET /{code}`),
@@ -140,6 +166,6 @@ Because the repository interfaces live in `domain` and JPA is confined to `persi
 H2 for Postgres/MySQL is a JDBC URL + driver change — nothing in `service` or `api` would need to
 change.
 
-See [`docs/setup.md`](setup.md) to run it, [`docs/testing.md`](testing.md) for how it's tested and
-what isn't, and [`docs/engineering-summary.md`](engineering-summary.md) for the design decisions
-behind the system as a whole.
+See [`docs/setup.md`](setup.md) to run it, [`docs/testing.md`](testing.md) for how it's tested, and
+[`docs/engineering-summary.md`](engineering-summary.md) for the design decisions behind the system
+as a whole.

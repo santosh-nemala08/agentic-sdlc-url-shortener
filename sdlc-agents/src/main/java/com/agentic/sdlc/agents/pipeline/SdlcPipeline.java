@@ -62,25 +62,36 @@ public final class SdlcPipeline {
     /**
      * Adds the requirement-analysis -> task-decomposition -> architecture-design stages onto an
      * in-progress builder, so a larger pipeline (see {@link FullLifecyclePipeline}) can extend
-     * this exact planning phase with further stages rather than re-declaring it.
+     * this exact planning phase with further stages rather than re-declaring it. The
+     * requirement-analysis stage is built from the given {@link RequirementAnalyzer} with no
+     * special governance -- see the {@link StageDefinition} overload below to attach governance
+     * (e.g. a fallback) to that stage instead.
      */
     public static DependencyGraph.Builder addPlanningStages(DependencyGraph.Builder builder,
                                                               RequirementAnalyzer requirementAnalyzer) {
+        return addPlanningStages(builder, buildRequirementAnalysisStage(requirementAnalyzer));
+    }
+
+    /**
+     * Same planning phase, but the requirement-analysis stage is supplied fully-formed rather
+     * than built from a plain {@link RequirementAnalyzer} -- so a caller can attach governance to
+     * it (a fallback, retries, a guardrail) that this pipeline has no opinion about. See {@code
+     * requirements.llm.ResilientRequirementAnalysisStage} for the motivating example: an
+     * LLM-backed primary executor with a {@link com.agentic.sdlc.orchestrator.governance.FallbackHandler}
+     * that falls back to the deterministic agent if the LLM call fails for any reason.
+     *
+     * @throws IllegalArgumentException if {@code requirementAnalysisStage}'s id is not
+     *         {@link #REQUIREMENT_ANALYSIS} -- the decomposition stage below depends on that
+     *         exact id.
+     */
+    public static DependencyGraph.Builder addPlanningStages(DependencyGraph.Builder builder,
+                                                              StageDefinition requirementAnalysisStage) {
+        if (!requirementAnalysisStage.id().equals(REQUIREMENT_ANALYSIS)) {
+            throw new IllegalArgumentException("requirementAnalysisStage must use id " + REQUIREMENT_ANALYSIS
+                    + ", got " + requirementAnalysisStage.id());
+        }
         TaskDecompositionAgent decompositionAgent = new TaskDecompositionAgent();
         ArchitectureDesignAgent designAgent = new ArchitectureDesignAgent();
-
-        StageDefinition requirementStage = new StageDefinition(REQUIREMENT_ANALYSIS,
-                "Analyze the requirement, identify ambiguity, and normalize it into an engineering problem",
-                Set.of(),
-                ctx -> {
-                    RequirementAnalysis analysis = requirementAnalyzer.analyze(ctx.requirementText());
-                    ctx.putArtifact(ARTIFACT_REQUIREMENT_ANALYSIS, analysis);
-                    ctx.recordDecision(REQUIREMENT_ANALYSIS,
-                            "ambiguityScore=" + analysis.ambiguityScore()
-                                    + " requiresClarification=" + analysis.requiresClarification());
-                    return StageResult.success(analysis.identifiedAmbiguities().size()
-                            + " ambiguity signal(s); requiresClarification=" + analysis.requiresClarification());
-                });
 
         StageDefinition decompositionStage = new StageDefinition(TASK_DECOMPOSITION,
                 "Decompose the requirement into an actionable, dependency-ordered task list",
@@ -106,8 +117,24 @@ public final class SdlcPipeline {
                 GovernancePolicy.approvalRequired());
 
         return builder
-                .addStage(requirementStage)
+                .addStage(requirementAnalysisStage)
                 .addStage(decompositionStage)
                 .addStage(designStage);
+    }
+
+    /** The plain requirement-analysis stage: no governance, just the given analyzer's output. */
+    public static StageDefinition buildRequirementAnalysisStage(RequirementAnalyzer requirementAnalyzer) {
+        return new StageDefinition(REQUIREMENT_ANALYSIS,
+                "Analyze the requirement, identify ambiguity, and normalize it into an engineering problem",
+                Set.of(),
+                ctx -> {
+                    RequirementAnalysis analysis = requirementAnalyzer.analyze(ctx.requirementText());
+                    ctx.putArtifact(ARTIFACT_REQUIREMENT_ANALYSIS, analysis);
+                    ctx.recordDecision(REQUIREMENT_ANALYSIS,
+                            "ambiguityScore=" + analysis.ambiguityScore()
+                                    + " requiresClarification=" + analysis.requiresClarification());
+                    return StageResult.success(analysis.identifiedAmbiguities().size()
+                            + " ambiguity signal(s); requiresClarification=" + analysis.requiresClarification());
+                });
     }
 }

@@ -219,9 +219,18 @@ public final class WorkflowEngine {
                         StageCompletion skip = skippedDueToUpstream(dependent, workflowId);
                         statuses.put(dependent, StageStatus.SKIPPED);
                         completions.add(skip);
-                    } else {
+                    } else if (!reuseResults.containsKey(dependent)) {
                         startOrSkip(dependent, context, statuses, completions);
                     }
+                    // else: dependent already has a reused result -- its synthetic completion
+                    // was queued unconditionally in the loop above, before this while-loop even
+                    // started. Starting it here too would both re-execute it for real (defeating
+                    // the point of reuse) and post a second completion for the same stage,
+                    // inflating terminalCount past totalStages and causing this method to return
+                    // before genuinely still-running stages finish. This matters specifically for
+                    // a chain of two or more *consecutive* reused stages (a reused stage whose
+                    // direct dependency is also reused) -- a shape none of the isolated-branch
+                    // re-planning examples elsewhere in this codebase happen to exercise.
                 }
             }
         }

@@ -67,8 +67,8 @@ public final class CodebaseImpactAnalyzer {
 
     /**
      * @return impacted files for each task that maps to known, already-built parts of the
-     * codebase; a task with no entry (e.g. "authentication", never built) is net-new work with
-     * no existing files to reason about, which is itself a meaningful finding, not an omission.
+     * codebase; a task with no entry is net-new work with no existing files to reason about,
+     * which is itself a meaningful finding, not an omission.
      */
     public Map<Task, List<ImpactedFile>> analyze(List<Task> tasks) {
         Map<Task, List<ImpactedFile>> result = new LinkedHashMap<>();
