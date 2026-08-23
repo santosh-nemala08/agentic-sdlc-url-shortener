@@ -18,5 +18,10 @@ Thumbs.db
 /artifacts/
 *.log
 
+# H2 database files (shortener-service's local dev database, runs relative to its own module dir)
+data/
+*.mv.db
+*.trace.db
+
 # Env
 .env

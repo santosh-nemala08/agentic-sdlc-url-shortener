@@ -24,31 +24,35 @@ This repository has three modules:
 
 ## Status
 
-Built and tested so far (commits 1-11 of 20 — see
+Built and tested so far (commits 1-12 of 20 — see
 [`docs/commit-plan.md`](docs/commit-plan.md) for the full sequence):
 
 - The orchestration engine is **complete**: DAG execution with proven real
   parallelism and synchronization, governance (approval gates, guardrails,
   retries, fallback, rollback, safe-stop), audit trail + reliability
   metrics, state persistence, and dynamic re-planning with selective stage
-  reuse. 32 unit/integration tests.
+  reuse. 30 unit/integration tests.
 - All three SDLC agents are built and wired into one governed pipeline
   (requirement analysis → task decomposition → architecture/design),
   running on the real engine, approval-gated at the design stage. 24 tests.
-- The shortener product has create, redirect, expiration, and validation:
-  `POST /api/links` (optional custom alias, 409 on collision; optional
-  `ttlSeconds`), `GET /{code}` (302 while live, 410 once expired, 404 if
-  unknown), and a `UrlValidator` that rejects malformed URLs, non-http(s)
-  schemes, and links that point back at this service's own base URL
-  (which would create a redirect loop). Backed by an in-memory store
-  behind a swappable repository interface. 33 tests.
-- **89 tests pass across the whole reactor.**
+- The shortener product has create, redirect, expiration, validation, and
+  now real persistence: `POST /api/links` (optional custom alias, 409 on
+  collision; optional `ttlSeconds`), `GET /{code}` (302 while live, 410
+  once expired, 404 if unknown), a `UrlValidator` that rejects malformed
+  URLs, non-http(s) schemes, and self-referential links, and a
+  file-based H2 database behind Spring Data JPA -- durability verified by
+  actually restarting the running server and confirming a previously
+  created link still resolves, not just by asserting on an object.
+  `LinkRepository` stayed an interface throughout, so this swap from
+  commit 9's in-memory store touched no code in the service or API
+  layers. 39 tests.
+- **93 tests pass across the whole reactor.**
 
-Still to come: real persistence, click analytics, rate limiting, health
-checks, wiring the product's build/test/docs stages onto the orchestrator,
-the three required end-to-end scenarios (greenfield/brownfield/ambiguous),
-and the final documentation deliverables (architecture overview, setup
-instructions, testing approach/limitations, engineering summary).
+Still to come: click analytics, rate limiting, health checks, wiring the
+product's build/test/docs stages onto the orchestrator, the three required
+end-to-end scenarios (greenfield/brownfield/ambiguous), and the final
+documentation deliverables (architecture overview, setup instructions,
+testing approach/limitations, engineering summary).
 
 ## Quick check
 

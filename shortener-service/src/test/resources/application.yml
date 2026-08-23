@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: shortener-service
+  datasource:
+    # In-memory, not the file-based DB main uses: tests must never touch (or be polluted by)
+    # whatever is sitting in ./data/shortener from a real run. DB_CLOSE_DELAY=-1 keeps the
+    # in-memory instance alive for the whole test JVM fork instead of dropping it after the
+    # first connection closes; @Transactional on integration test classes rolls back each test's
+    # writes so tests in the same class (or different classes sharing this fork) don't see each
+    # other's data.
+    url: jdbc:h2:mem:shortener-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+app:
+  base-url: http://localhost:8080

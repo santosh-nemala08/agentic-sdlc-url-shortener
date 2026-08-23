@@ -1,13 +1,17 @@
 package com.agentic.sdlc.shortener.domain;
 
-import org.springframework.stereotype.Repository;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Non-durable {@link LinkRepository}; replaced by a real database in commit 12. */
-@Repository
+/**
+ * Test-only fake, not the production repository (that's {@code JpaLinkRepository}
+ * as of commit 12). Kept around specifically so unit tests for
+ * {@code ShortenerService}'s business logic (collision retry, alias
+ * handling, TTL) don't need a real database or a Spring context to run --
+ * this is exactly the payoff of {@code LinkRepository} having been an
+ * interface from commit 9 onward.
+ */
 public class InMemoryLinkRepository implements LinkRepository {
 
     private final Map<String, Link> links = new ConcurrentHashMap<>();

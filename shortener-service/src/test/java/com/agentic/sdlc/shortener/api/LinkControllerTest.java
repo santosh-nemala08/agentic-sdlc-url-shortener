@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.startsWith;
@@ -13,8 +14,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * {@code @Transactional} rolls each test method back at the end, so this
+ * class's writes never leak into other test classes sharing the same
+ * in-memory H2 instance for the test JVM fork (Surefire reuses one fork
+ * per module by default). Without it, isolation between test classes
+ * would depend on them coincidentally never reusing the same alias.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 class LinkControllerTest {
 
     @Autowired
