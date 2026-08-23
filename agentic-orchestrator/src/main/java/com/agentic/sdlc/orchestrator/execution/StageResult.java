@@ -3,7 +3,7 @@ package com.agentic.sdlc.orchestrator.execution;
 /**
  * Outcome reported by a single stage execution. {@code error} is populated
  * when failure came from an exception rather than an explicit business
- * decision to fail (e.g. a policy guardrail veto in a later commit).
+ * decision to fail (e.g. a policy guardrail veto).
  */
 public record StageResult(boolean success, String message, Throwable error) {
 

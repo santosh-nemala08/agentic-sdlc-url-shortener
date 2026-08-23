@@ -13,20 +13,25 @@ This repository has three modules:
   This is the critical differentiator the assignment asks for, and it has no
   dependency on Spring or the URL shortener domain — it orchestrates work,
   it does not know what the work is.
-- **`sdlc-agents/`** — the concrete SDLC "agents": requirement analysis
-  (ambiguity detection), task decomposition, and architecture/design, wired
-  onto a real `DependencyGraph` and run through the orchestrator above. Rule
-  based and deterministic by design (see [`docs/commit-plan.md`](docs/commit-plan.md)
-  for why), not LLM-backed.
-- **`shortener-service/`** — the product. A Spring Boot URL shortener. This
-  is what the orchestrator's implementation/testing/documentation stages
-  build and validate once those stages are wired in (in progress).
+- **`sdlc-agents/`** — the concrete SDLC "agents" (requirement analysis,
+  task decomposition, architecture/design, plus implementation-validation,
+  testing, and documentation-check) wired onto real `DependencyGraph`s and
+  run through the orchestrator above. The default requirement analyzer is
+  rule-based and deterministic (see
+  [`docs/testing.md`](docs/testing.md#why-the-agents-are-rule-based-not-llm-backed)
+  for why); a second, real LLM-backed implementation of the same interface
+  also exists (`requirements.llm.LlmRequirementAnalysisAgent`), opt-in via
+  an API key.
+- **`shortener-service/`** — the product. A standalone Spring Boot URL
+  shortener, built and enhanced under the orchestrator's governance across
+  the scenarios in `sdlc-agents/scenario/`.
+
+Full docs: [architecture overview](docs/architecture.md) ·
+[setup instructions](docs/setup.md) ·
+[testing approach, limitations, and trade-offs](docs/testing.md) ·
+[engineering summary](docs/engineering-summary.md).
 
 ## Status
-
-Built and tested so far (commits 1-17 of 18 — see
-[`docs/commit-plan.md`](docs/commit-plan.md) for the full sequence; the
-remaining plan was compressed from 20 to 18 commits, same scope):
 
 - The orchestration engine is **complete**: DAG execution with proven real
   parallelism and synchronization, governance (approval gates, guardrails,
@@ -49,8 +54,8 @@ remaining plan was compressed from 20 to 18 commits, same scope):
   `CodebaseImpactAnalyzer` maps each decomposed task to the actual
   existing `shortener-service` files it touches — 5 of 6 implementation
   tasks map to already-built, already-tested files (this exact
-  enhancement shipped in commits 13-14), and the one gap it correctly
-  finds (`authentication`) is genuinely unbuilt in this codebase, not a
+  enhancement already exists in this codebase), and the one gap it
+  correctly finds (`authentication`) is genuinely unbuilt here, not a
   fabricated result.
 - `AmbiguousScenarioRunner` demonstrates a human clarification checkpoint
   triggered dynamically by an upstream stage's own output, not fixed at
@@ -71,17 +76,32 @@ remaining plan was compressed from 20 to 18 commits, same scope):
   API key and shows the engine actually block it (`STAGE_BLOCKED`,
   downstream `SKIPPED`), with the reason in both the decision log and the
   durable audit trail.
-- **118 tests pass across the whole reactor, all enabled.** (A 20-thread
+- `FullLifecyclePipeline` extends the planning pipeline all the way to a real release-readiness
+  gate: `implementation-validation` (maps decomposed tasks to real existing files, approval-gated
+  on any gap) feeds `testing` and `documentation-check` running concurrently, joining at
+  `release-readiness`. `testing` doesn't simulate anything — it actually invokes `mvn test`
+  against `shortener-service` as a subprocess and gates on its real exit code.
+  `FullLifecycleScenarioRunner` runs this whole seven-stage graph end to end (confirmed: all
+  stages succeed, the real subprocess reports 57/57 passing, release-readiness is reached only
+  after both real checks pass).
+- `RequirementAnalyzer` is an interface, not just `RequirementAnalysisAgent`'s shape:
+  `LlmRequirementAnalysisAgent` is a second, real implementation that calls the live Anthropic API
+  instead of applying rules, and every pipeline that depends on a `RequirementAnalyzer` — including
+  the dynamic-governance mechanism in `AmbiguousScenarioRunner` — works with either one unmodified.
+  Opt-in via `ANTHROPIC_API_KEY`; see [`docs/setup.md`](docs/setup.md).
+- **138 tests pass across the whole reactor, all enabled.** (A 20-thread
   concurrency stress test for click counting was written earlier, used to
   find and verify a real bug, then removed rather than kept disabled — it
   passed reliably alone but was sensitive to shared-JVM timing in the full
   Surefire run, and a disabled test that never runs isn't worth the
   upkeep. The bug it targeted is fixed and documented in
   `JpaClickStatsRepository`'s javadoc.)
-
-Still to come: the final documentation deliverables (architecture
-overview, setup instructions, testing approach/limitations, engineering
-summary).
+- **CI** (`.github/workflows/ci.yml`) runs the full reactor build and test
+  suite (`mvn verify`) on every push and pull request against `main`.
+- Full documentation is written: [architecture overview](docs/architecture.md),
+  [setup instructions](docs/setup.md),
+  [testing approach/limitations/trade-offs](docs/testing.md), and the
+  [final engineering summary](docs/engineering-summary.md).
 
 ## Quick check
 
@@ -98,8 +118,11 @@ Run any of these directly in IntelliJ (right-click → Run), or via Maven:
 | `SdlcPipelineDemo.main` | `sdlc-agents` | All 3 agents running end-to-end on the real engine |
 | `GreenfieldScenarioRunner.main` | `sdlc-agents` | Build-from-scratch scenario, audit trail + state snapshot |
 | `BrownfieldScenarioRunner.main` | `sdlc-agents` | Enhance-existing scenario, codebase-impact reasoning |
+| `FullLifecycleScenarioRunner.main` | `sdlc-agents` | Full SDLC chain: real `mvn test` execution + real release-readiness gate |
 | `AmbiguousScenarioRunner.main` | `sdlc-agents` | Dynamic clarification gate triggered by detected ambiguity |
 | `GuardrailBlockScenarioRunner.main` | `sdlc-agents` | Real policy guardrail vetoing a stage before it runs |
+| `LlmRequirementAnalysisDemo.main` (needs `ANTHROPIC_API_KEY`) | `sdlc-agents` | Real LLM-backed requirement analysis vs. the rule-based default |
+| `LlmAmbiguousScenarioRunner.main` (needs `ANTHROPIC_API_KEY`) | `sdlc-agents` | The same dynamic clarification gate, driven by a real LLM call |
 
 Shortener API (run `ShortenerServiceApplication`, then):
 

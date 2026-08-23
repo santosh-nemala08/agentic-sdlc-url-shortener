@@ -6,6 +6,7 @@ import com.agentic.sdlc.agents.decomposition.TaskPlan;
 import com.agentic.sdlc.agents.pipeline.SdlcPipeline;
 import com.agentic.sdlc.agents.requirements.RequirementAnalysis;
 import com.agentic.sdlc.agents.requirements.RequirementAnalysisAgent;
+import com.agentic.sdlc.agents.requirements.RequirementAnalyzer;
 import com.agentic.sdlc.orchestrator.execution.StageResult;
 import com.agentic.sdlc.orchestrator.execution.WorkflowContext;
 import com.agentic.sdlc.orchestrator.execution.WorkflowEngine;
@@ -43,15 +44,27 @@ import java.util.Set;
  * the shape of the pipeline's control (what needs a human) changes in response to an upstream
  * stage's real output. Run alongside a well-specified requirement for contrast: the same graph
  * shape skips the extra gate entirely when the analyzer found nothing to flag.
+ *
+ * {@link #run} takes any {@link RequirementAnalyzer}, not just the deterministic default {@link
+ * #main} uses -- {@code LlmAmbiguousScenarioRunner} calls this exact same method with a real
+ * LLM-backed one, so the dynamic-governance mechanism demonstrated here is proven to work
+ * identically regardless of what kind of intelligence produced the ambiguity score.
  */
 public final class AmbiguousScenarioRunner {
 
     public static void main(String[] args) {
-        runFor("WELL-SPECIFIED (brownfield, for contrast)", ScenarioRequirements.BROWNFIELD);
-        runFor("AMBIGUOUS", ScenarioRequirements.AMBIGUOUS);
+        RequirementAnalyzer ruleBasedAnalyzer = new RequirementAnalysisAgent();
+        run("WELL-SPECIFIED (brownfield, for contrast)", ScenarioRequirements.BROWNFIELD, ruleBasedAnalyzer);
+        run("AMBIGUOUS", ScenarioRequirements.AMBIGUOUS, ruleBasedAnalyzer);
     }
 
-    private static void runFor(String label, String requirement) {
+    /**
+     * Runs this whole two-phase scenario with any {@link RequirementAnalyzer} -- the deterministic
+     * rule-based one by default (see {@link #main}), or a real LLM-backed one (see
+     * {@code LlmAmbiguousScenarioRunner}). Public so both entry points can share this exact logic
+     * rather than duplicating it.
+     */
+    public static void run(String label, String requirement, RequirementAnalyzer analyzer) {
         System.out.println("=== AMBIGUOUS-REQUIREMENT SCENARIO: " + label + " ===");
         System.out.println("requirement: " + requirement);
         System.out.println();
@@ -59,7 +72,7 @@ public final class AmbiguousScenarioRunner {
         String workflowId = "ambiguous-scenario-" + System.currentTimeMillis();
         WorkflowContext context = new WorkflowContext(workflowId, requirement);
 
-        RequirementAnalysis analysis = runRequirementAnalysisAlone(context);
+        RequirementAnalysis analysis = runRequirementAnalysisAlone(context, analyzer);
         System.out.println("-- PHASE 1: requirement analysis --");
         System.out.println("ambiguityScore=" + analysis.ambiguityScore()
                 + " requiresClarification=" + analysis.requiresClarification());
@@ -83,14 +96,14 @@ public final class AmbiguousScenarioRunner {
      * phase 2's governance is decided. Never itself approval-gated -- analysis is read-only, there
      * is nothing yet to sign off on.
      */
-    private static RequirementAnalysis runRequirementAnalysisAlone(WorkflowContext context) {
-        RequirementAnalysisAgent requirementAgent = new RequirementAnalysisAgent();
+    private static RequirementAnalysis runRequirementAnalysisAlone(WorkflowContext context,
+                                                                     RequirementAnalyzer analyzer) {
         StageId requirementAnalysisId = SdlcPipeline.REQUIREMENT_ANALYSIS;
 
         DependencyGraph phase1 = DependencyGraph.builder()
                 .addStage(new com.agentic.sdlc.orchestrator.graph.StageDefinition(requirementAnalysisId,
                         "Analyze the requirement", Set.of(), ctx -> {
-                    RequirementAnalysis result = requirementAgent.analyze(ctx.requirementText());
+                    RequirementAnalysis result = analyzer.analyze(ctx.requirementText());
                     ctx.putArtifact(SdlcPipeline.ARTIFACT_REQUIREMENT_ANALYSIS, result);
                     return StageResult.success("ambiguityScore=" + result.ambiguityScore());
                 }))

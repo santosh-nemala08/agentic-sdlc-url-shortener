@@ -4,9 +4,10 @@ import java.time.Instant;
 
 /**
  * A shortened link. {@code expiresAt} is nullable -- {@code null} means
- * the link never expires. Click analytics (commit 13) are added as this
- * domain evolves further, as a separate aggregate rather than a mutating
- * field here (see the click-tracking design notes when that lands).
+ * the link never expires. Click analytics ({@link LinkAnalytics}) are
+ * modeled as a separate aggregate rather than a mutating field here, so a
+ * link's identity stays immutable while its click history accrues
+ * independently.
  */
 public record Link(String shortCode, String originalUrl, Instant createdAt, Instant expiresAt) {
 

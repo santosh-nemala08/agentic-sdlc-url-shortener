@@ -23,9 +23,9 @@ import java.nio.file.Path;
  * task as work to be done from a blank slate.
  *
  * Notably, this requirement's tasks (click analytics, rate limiting) map to files that already
- * exist and are already tested: this project delivered exactly this brownfield enhancement in
- * commits 13-14, under the same governance this scenario demonstrates. The impact analysis
- * below is not hypothetical -- it points at real files with real git history.
+ * exist and are already tested: this project delivered exactly this brownfield enhancement for
+ * real, under the same governance this scenario demonstrates. The impact analysis below is not
+ * hypothetical -- it points at real files with real history.
  */
 public final class BrownfieldScenarioRunner {
 

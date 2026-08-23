@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  * itself -- that gate is wired in when this agent is placed on the
  * pipeline.
  */
-public final class RequirementAnalysisAgent {
+public final class RequirementAnalysisAgent implements RequirementAnalyzer {
 
     /**
      * Words that read as a goal but carry no measurable acceptance
@@ -82,6 +82,7 @@ public final class RequirementAnalysisAgent {
     private static final int MIN_WORDS_BEFORE_FLAGGED_BRIEF = 6;
     private static final int CLARIFICATION_THRESHOLD = 3;
 
+    @Override
     public RequirementAnalysis analyze(String rawRequirement) {
         if (rawRequirement == null || rawRequirement.isBlank()) {
             throw new IllegalArgumentException("Requirement text must not be blank");

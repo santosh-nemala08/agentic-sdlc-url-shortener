@@ -13,8 +13,8 @@ import java.util.Set;
 /**
  * Runnable smoke demo for the DAG engine: A feeds B and C, which run
  * concurrently, and D joins on both before running. Proves the module
- * builds and the scheduler behaves as designed, ahead of the full test
- * suite and the SDLC-specific stages landing in later commits.
+ * builds and the scheduler behaves as designed, independent of the full
+ * test suite and the SDLC-specific stages built on top of it elsewhere.
  */
 public final class OrchestratorInfo {
 

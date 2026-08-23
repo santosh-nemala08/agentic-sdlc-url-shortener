@@ -4,7 +4,7 @@ package com.agentic.sdlc.agents;
  * The three canonical requirement texts this project uses to demonstrate
  * greenfield, brownfield, and ambiguous handling (the assignment's
  * required scenario set). Centralized here rather than duplicated across
- * each scenario runner as those are built in later commits.
+ * each scenario runner.
  */
 public final class ScenarioRequirements {
 

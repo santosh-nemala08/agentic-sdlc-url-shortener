@@ -10,8 +10,7 @@ import java.util.Map;
 /**
  * The final outcome of one {@link WorkflowEngine#execute} run: every
  * stage's terminal status and result, keyed for easy lookup by callers
- * (scenario runners, tests, and -- from a later commit -- the metrics
- * collector).
+ * (scenario runners, tests, and the metrics collector).
  */
 public record WorkflowExecutionReport(
         String workflowId,

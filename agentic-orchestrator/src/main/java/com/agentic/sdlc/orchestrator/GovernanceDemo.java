@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * guardrail veto (and its downstream skip cascade), a flaky stage that
  * succeeds after retries, a doomed stage that exhausts retries and rolls
  * back, and a safe-stop that halts a run in flight. Not a substitute for
- * the unit test suite landing in a later commit -- this is a fast,
- * visual proof the wiring works before that suite exists.
+ * the unit test suite -- this is a fast, visual proof the wiring works,
+ * readable end to end without stepping through assertions.
  */
 public final class GovernanceDemo {
 

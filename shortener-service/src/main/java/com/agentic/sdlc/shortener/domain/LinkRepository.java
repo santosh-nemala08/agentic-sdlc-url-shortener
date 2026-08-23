@@ -3,9 +3,9 @@ package com.agentic.sdlc.shortener.domain;
 import java.util.Optional;
 
 /**
- * Storage boundary for links. Kept as an interface from the start so the
- * in-memory implementation used now can be swapped for a real database
- * (commit 12) without touching {@code ShortenerService} or the API layer.
+ * Storage boundary for links. Kept as an interface so the persistence
+ * implementation ({@code JpaLinkRepository}) can vary independently of
+ * {@code ShortenerService} and the API layer.
  */
 public interface LinkRepository {
 

@@ -21,11 +21,10 @@ import java.nio.file.Path;
  * evidence -- not just a console log that vanishes with the process.
  *
  * The pipeline's IMPLEMENTATION/TESTING/DOCUMENTATION stages are not re-run here: this project's
- * actual implementation (commits 9-15) already exists as the real, tested {@code
- * shortener-service} module, produced under exactly this same governance model one commit at a
- * time. This runner demonstrates and evidences the decomposition/orchestration/validation that
- * shaped it, rather than regenerating what is already built and already covered by 111 passing
- * tests.
+ * actual implementation already exists as the real, tested {@code shortener-service} module,
+ * produced under exactly this same governance model. This runner demonstrates and evidences the
+ * decomposition/orchestration/validation that shaped it, rather than regenerating what is already
+ * built and already covered by that module's own test suite.
  */
 public final class GreenfieldScenarioRunner {
 
