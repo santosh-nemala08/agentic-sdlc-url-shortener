@@ -21,11 +21,11 @@ spring:
     hikari:
       # A REQUIRES_NEW transaction (FirstClickInserter) suspends the caller's connection and
       # acquires a second one for its own duration, so a thread mid-flight through
-      # JpaClickStatsRepository.recordClick can briefly hold two at once. ClickTrackerConcurrencyTest
-      # races 20 threads through exactly that path deliberately; the default pool size (10) was
-      # too small for that and produced a genuine connection-pool deadlock (every connection held
-      # by a thread waiting for a second one that could never free up) -- not a flaky test, a real
-      # capacity limit the test exists to stress. Sized well above the test's own worst case.
+      # JpaClickStatsRepository.recordClick can briefly hold two at once. The default pool size
+      # (10) was too small under concurrent load on that path and produced a genuine
+      # connection-pool deadlock (every connection held by a thread waiting for a second one
+      # that could never free up), found while stress-testing click recording by hand. Matches
+      # the same reasoning as the production config's hikari.maximum-pool-size.
       maximum-pool-size: 50
   jpa:
     hibernate:

@@ -15,8 +15,8 @@ import java.time.Instant;
  * caller's transaction is never touched.
  *
  * Deliberately does NOT catch the exception here, even though this class
- * exists specifically to handle a losing race -- that was tried and
- * proven wrong by {@link ClickTrackerConcurrencyTest}: catching inside
+ * exists specifically to handle a losing race -- that was tried first,
+ * and proven wrong by a dedicated concurrency test: catching inside
  * this {@code REQUIRES_NEW} method still marks THIS transaction
  * rollback-only, so returning normally afterward makes ITS OWN commit
  * fail with {@code UnexpectedRollbackException} instead. Letting the

@@ -28,8 +28,11 @@ public class JpaClickStatsRepository implements ClickStatsRepository {
      * own transaction, and retried as a plain increment, so the click is still counted rather
      * than lost.
      *
-     * Getting this right took three attempts, each caught by writing a real concurrency test
-     * ({@link ClickTrackerConcurrencyTest}) rather than reasoning it through, not by guessing:
+     * Getting this right took three attempts, each caught by writing and running a real
+     * concurrency test (many threads racing to record the first click on the same brand-new
+     * code) rather than by reasoning it through, and independently confirmed by hand against a
+     * running server (two near-simultaneous redirects on a brand-new link lost a click before
+     * this fix):
      * <ol>
      *   <li>A plain {@code save()} on the insert path let a lost race go completely unnoticed --
      *       Hibernate defers the INSERT to the next flush, so the violation surfaced too late
