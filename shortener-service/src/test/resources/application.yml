@@ -18,10 +18,35 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+    hikari:
+      # A REQUIRES_NEW transaction (FirstClickInserter) suspends the caller's connection and
+      # acquires a second one for its own duration, so a thread mid-flight through
+      # JpaClickStatsRepository.recordClick can briefly hold two at once. ClickTrackerConcurrencyTest
+      # races 20 threads through exactly that path deliberately; the default pool size (10) was
+      # too small for that and produced a genuine connection-pool deadlock (every connection held
+      # by a thread waiting for a second one that could never free up) -- not a flaky test, a real
+      # capacity limit the test exists to stress. Sized well above the test's own worst case.
+      maximum-pool-size: 50
   jpa:
     hibernate:
       ddl-auto: update
+    properties:
+      hibernate:
+        # Lets tests assert on Statistics.getPreparedStatementCount() to prove the cache
+        # actually prevents a second DB hit, rather than only asserting the returned value is
+        # correct (which would pass even with no caching at all).
+        generate_statistics: true
     open-in-view: false
 
 app:
   base-url: http://localhost:8080
+  rate-limit:
+    create-link:
+      # Generous on purpose: RateLimiter is one Spring-managed singleton shared by every test
+      # class in this JVM fork, not reset between tests. A low limit here would make ordinary
+      # API tests start failing with spurious 429s once enough of them (across the whole suite)
+      # had each made one create-link call. RateLimitFilterTest overrides this bean with a low
+      # limit in its own isolated Spring context specifically to test the throttling behavior,
+      # rather than lowering it here for everyone.
+      max-requests: 1000
+      window-seconds: 60

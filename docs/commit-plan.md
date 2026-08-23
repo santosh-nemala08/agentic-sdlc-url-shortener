@@ -22,13 +22,19 @@ review small.
 | 11 | Shortener expiration + validation | TTL support, input validation |
 | 12 | Shortener persistence | Swap in-memory store for a real database |
 | 13 | Shortener click analytics | Per-link click tracking and summary endpoint |
-| 14 | Shortener reliability: rate limiting + caching | |
-| 15 | Shortener health checks | Actuator / liveness-readiness |
-| 16 | Shortener test suite | Unit + integration tests |
-| 17 | Greenfield scenario runner | Orchestrator builds the shortener end-to-end; audit trail as evidence |
-| 18 | Brownfield scenario | Orchestrator enhances the existing service; demonstrates codebase-impact reasoning |
-| 19 | Ambiguous + guardrail-block scenarios | Underspecified requirement triggers clarification gate; a policy-violating requirement is blocked |
-| 20 | Documentation | Architecture overview, setup instructions, testing approach/limitations/trade-offs, final engineering summary |
+| 14 | Shortener reliability | Rate limiting, response caching, real health checks (`/actuator/health`), replacing the placeholder `/status` |
+| 15 | Shortener test-suite hardening | Fill remaining gaps across the shortener test suite |
+| 16 | Greenfield + brownfield scenarios | Orchestrator builds the shortener end-to-end, then enhances it; audit trail as evidence; codebase-impact reasoning demonstrated |
+| 17 | Ambiguous + guardrail-block scenarios | Underspecified requirement triggers clarification gate; a policy-violating requirement is blocked |
+| 18 | Documentation | Architecture overview, setup instructions, testing approach/limitations/trade-offs, final engineering summary |
+
+Re-sliced again at commit 14: the original 20-commit plan's items 14-20
+(7 items) were compressed into commits 14-18 (5 items) at the user's
+request to finish faster under time pressure, without dropping any scope
+-- greenfield and brownfield merged into one commit, and the dedicated
+test-suite commit narrowed to a gap-filling pass since most of the
+shortener's test coverage was already built alongside each feature
+commit rather than deferred.
 
 ## Why this order
 

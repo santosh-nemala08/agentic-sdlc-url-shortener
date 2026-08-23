@@ -2,6 +2,7 @@ package com.agentic.sdlc.shortener.service;
 
 import com.agentic.sdlc.shortener.domain.Link;
 import com.agentic.sdlc.shortener.domain.LinkRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -56,6 +57,20 @@ public class ShortenerService {
         return repository.save(link);
     }
 
+    /**
+     * Cached: redirect is the hottest path in this service, and a link's
+     * resolved data never changes once created, so a cache hit carries no
+     * staleness risk. {@code unless} keeps a not-found result from being
+     * cached, so a code looked up before it exists can't get "stuck"
+     * returning empty for the cache's TTL once it is actually created.
+     *
+     * Spring's cache abstraction auto-unwraps an {@code Optional<T>} return
+     * value for both storage and the {@code #result} SpEL variable, so
+     * {@code #result} here is a {@code Link} (or {@code null} for an empty
+     * Optional), never an {@code Optional<Link>} -- {@code #result.isEmpty()}
+     * would fail with "Method isEmpty() cannot be found on type Link".
+     */
+    @Cacheable(value = "links", key = "#shortCode", unless = "#result == null")
     public Optional<Link> resolve(String shortCode) {
         return repository.findByShortCode(shortCode);
     }

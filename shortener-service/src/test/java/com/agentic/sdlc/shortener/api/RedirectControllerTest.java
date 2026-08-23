@@ -56,12 +56,13 @@ class RedirectControllerTest {
     }
 
     @Test
-    void statusEndpointStillWorksAlongsideTheCatchAllRedirectRoute() throws Exception {
-        // /status is a literal path; /{code} is a single-segment pattern. Spring must prefer
-        // the exact match. If this regresses, the redirect route has started shadowing /status.
-        mockMvc.perform(get("/status"))
+    void actuatorHealthStillWorksAlongsideTheCatchAllRedirectRoute() throws Exception {
+        // /actuator/health has multiple path segments; /{code} is a single-segment pattern, so
+        // it should never match a multi-segment path in the first place. This guards against a
+        // future change to the redirect mapping (e.g. a wildcard) accidentally shadowing it.
+        mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.service").value("shortener-service"));
+                .andExpect(jsonPath("$.status").value("UP"));
     }
 
     @Test

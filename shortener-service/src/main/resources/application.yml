@@ -10,6 +10,13 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+    hikari:
+      # A REQUIRES_NEW transaction (FirstClickInserter, for concurrent-first-click handling in
+      # click tracking) suspends the caller's connection and acquires a second one for its own
+      # duration, so a single click can briefly hold two pool connections at once under
+      # contention. Above the HikariCP default (10) to leave headroom for that; discovered as a
+      # real connection-pool deadlock risk while stress-testing click tracking, not a guess.
+      maximum-pool-size: 20
   jpa:
     hibernate:
       # `update` auto-derives the schema from LinkEntity -- fine for this prototype. A real
@@ -21,5 +28,22 @@ spring:
 server:
   port: 8080
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health, not the full actuator surface (env, beans, etc.) -- those leak
+        # implementation detail and are a needless attack surface for a prototype with no
+        # authentication in front of them.
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
 app:
   base-url: http://localhost:8080
+  rate-limit:
+    create-link:
+      max-requests: 30
+      window-seconds: 60
