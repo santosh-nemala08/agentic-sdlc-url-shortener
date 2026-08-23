@@ -17,7 +17,7 @@ review small.
 | 6 | Requirement Analysis agent | Intent parsing, ambiguity detection, clarifying questions, recorded assumptions |
 | 7 | Task Decomposition agent | Requirement -> actionable, dependency-ordered task list |
 | 8 | Architecture/Design agent + pipeline wiring | Design stage; all three agents wired into one SDLC `DependencyGraph` |
-| 9 | Shortener domain + create/shorten API | Core POST endpoint, in-memory store |
+| 9 | Fallback governance + shortener domain/create API | `FallbackHandler` primitive (a gap found while auditing against the PDF's requirements); core POST endpoint, in-memory store |
 | 10 | Shortener redirect API + custom alias | GET redirect endpoint, alias collision handling |
 | 11 | Shortener expiration + validation | TTL support, input validation |
 | 12 | Shortener persistence | Swap in-memory store for a real database |
@@ -33,13 +33,27 @@ review small.
 ## Why this order
 
 - The orchestration engine (2-5) is built and tested *before* it is asked to
-  drive real work, so its governance behavior (gates, retries, rollback) is
-  verified in isolation rather than only observed indirectly through the
-  scenarios.
-- The product (7-9) is built next, on its own, so it can be reviewed as
-  ordinary Spring Boot code independent of the orchestration story.
-- The scenarios (10-11) come last and are where the two halves meet: the
-  orchestrator is pointed at the product to demonstrate greenfield,
-  brownfield, and ambiguous-requirement handling end to end.
-- Documentation (12) is written last so it describes what was actually
+  drive real work, so its governance behavior (gates, retries, fallback,
+  rollback) is verified in isolation rather than only observed indirectly
+  through the scenarios.
+- The SDLC agents (6-8) are built next and wired onto the engine, proving
+  the two halves connect, before there is a real product for them to build.
+- The product (9-16) is built after that, mostly on its own, so it can be
+  reviewed as ordinary Spring Boot code independent of the orchestration
+  story -- though see commit 9, which folded in a governance fix (fallback)
+  found while auditing progress against the assignment PDF partway through.
+- The scenarios (17-19) come last and are where all three pieces meet: the
+  orchestrator, driving the agents, builds and enhances the actual product
+  to demonstrate greenfield, brownfield, and ambiguous-requirement handling
+  end to end.
+- Documentation (20) is written last so it describes what was actually
   built, not what was planned.
+
+## Documentation policy
+
+The big deliverables (architecture overview, setup instructions, testing
+approach/limitations, final engineering summary) are written once in commit
+20, once there is a finished system to document accurately rather than a
+moving target. In the meantime, `README.md`'s status section is kept
+current after every commit so the repository never reads as more (or less)
+finished than it actually is.

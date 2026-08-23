@@ -5,6 +5,7 @@ import com.agentic.sdlc.orchestrator.governance.ApprovalGate;
 import com.agentic.sdlc.orchestrator.governance.GovernancePolicy;
 import com.agentic.sdlc.orchestrator.governance.GuardrailVerdict;
 import com.agentic.sdlc.orchestrator.governance.RetryPolicy;
+import com.agentic.sdlc.orchestrator.observability.AuditEventType;
 import com.agentic.sdlc.orchestrator.graph.DependencyGraph;
 import com.agentic.sdlc.orchestrator.graph.StageDefinition;
 import com.agentic.sdlc.orchestrator.graph.StageId;
@@ -121,6 +122,57 @@ class WorkflowEngineTest {
 
         WorkflowEngine engine = new WorkflowEngine(graph, 2);
         WorkflowExecutionReport report = engine.execute(new WorkflowContext("wf-rollback", "n/a"));
+        engine.shutdown();
+
+        assertThat(report.statuses().get(doomed)).isEqualTo(StageStatus.FAILED);
+        assertThat(rollbacks.get()).isEqualTo(1);
+    }
+
+    @Test
+    void fallbackCanRescueAStageAfterRetriesAreExhaustedAndSkipsRollback() {
+        AtomicInteger rollbacks = new AtomicInteger();
+        StageId flaky = StageId.of("rescued-by-fallback");
+
+        DependencyGraph graph = DependencyGraph.builder()
+                .addStage(new StageDefinition(flaky, "primary always fails, fallback rescues it", Set.of(),
+                        ctx -> StageResult.failure("primary strategy failed", null),
+                        GovernancePolicy.none()
+                                .withRetry(RetryPolicy.bounded(2, Duration.ofMillis(5)))
+                                .withFallback((ctx, primaryFailure) -> StageResult.success("degraded fallback ok"))
+                                // Rollback must NOT fire: the fallback rescued the stage to SUCCEEDED.
+                                .withRollback((ctx, r) -> rollbacks.incrementAndGet())))
+                .build();
+
+        WorkflowEngine engine = new WorkflowEngine(graph, 2);
+        WorkflowExecutionReport report = engine.execute(new WorkflowContext("wf-fallback-rescue", "n/a"));
+        engine.shutdown();
+
+        assertThat(report.statuses().get(flaky)).isEqualTo(StageStatus.SUCCEEDED);
+        assertThat(report.results().get(flaky).message()).isEqualTo("degraded fallback ok");
+        assertThat(rollbacks.get()).isZero();
+
+        boolean fallbackSucceededLogged = engine.auditEventLog().events().stream()
+                .anyMatch(e -> flaky.value().equals(e.stageId())
+                        && e.type() == AuditEventType.STAGE_FALLBACK_SUCCEEDED);
+        assertThat(fallbackSucceededLogged).isTrue();
+    }
+
+    @Test
+    void rollbackStillFiresWhenFallbackAlsoFails() {
+        AtomicInteger rollbacks = new AtomicInteger();
+        StageId doomed = StageId.of("fallback-also-fails");
+
+        DependencyGraph graph = DependencyGraph.builder()
+                .addStage(new StageDefinition(doomed, "primary and fallback both fail", Set.of(),
+                        ctx -> StageResult.failure("primary strategy failed", null),
+                        GovernancePolicy.none()
+                                .withRetry(RetryPolicy.bounded(2, Duration.ofMillis(5)))
+                                .withFallback((ctx, primaryFailure) -> StageResult.failure("fallback also failed", null))
+                                .withRollback((ctx, r) -> rollbacks.incrementAndGet())))
+                .build();
+
+        WorkflowEngine engine = new WorkflowEngine(graph, 2);
+        WorkflowExecutionReport report = engine.execute(new WorkflowContext("wf-fallback-and-rollback", "n/a"));
         engine.shutdown();
 
         assertThat(report.statuses().get(doomed)).isEqualTo(StageStatus.FAILED);

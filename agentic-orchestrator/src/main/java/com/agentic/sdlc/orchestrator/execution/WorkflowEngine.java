@@ -3,6 +3,7 @@ package com.agentic.sdlc.orchestrator.execution;
 import com.agentic.sdlc.orchestrator.governance.ApprovalDecision;
 import com.agentic.sdlc.orchestrator.governance.ApprovalGate;
 import com.agentic.sdlc.orchestrator.governance.AutoApprovalGate;
+import com.agentic.sdlc.orchestrator.governance.FallbackHandler;
 import com.agentic.sdlc.orchestrator.governance.GovernancePolicy;
 import com.agentic.sdlc.orchestrator.governance.GuardrailVerdict;
 import com.agentic.sdlc.orchestrator.governance.PolicyGuardrail;
@@ -305,6 +306,12 @@ public final class WorkflowEngine {
 
         StageResult result = executeWithRetries(definition, context);
         StageStatus status = result.success() ? StageStatus.SUCCEEDED : StageStatus.FAILED;
+
+        if (status == StageStatus.FAILED && governance.fallbackHandler() != null) {
+            result = attemptFallback(governance.fallbackHandler(), context, id, workflowId, result);
+            status = result.success() ? StageStatus.SUCCEEDED : StageStatus.FAILED;
+        }
+
         log.info("Stage {} finished with status {}", id, status);
         auditEventLog.record(AuditEvent.stage(workflowId, id.value(),
                 status == StageStatus.SUCCEEDED ? AuditEventType.STAGE_SUCCEEDED : AuditEventType.STAGE_FAILED,
@@ -326,6 +333,35 @@ public final class WorkflowEngine {
         }
 
         return new StageCompletion(id, status, result);
+    }
+
+    /**
+     * Tries the stage's fallback strategy once retries are exhausted.
+     * Runs exactly once -- a failing fallback is not itself retried, since
+     * a fallback is already the "we're out of good options" path.
+     */
+    private StageResult attemptFallback(FallbackHandler handler, WorkflowContext context, StageId id,
+                                         String workflowId, StageResult primaryFailure) {
+        try {
+            log.info("Stage {} attempting fallback after retries exhausted", id);
+            StageResult fallbackResult = handler.fallback(context, primaryFailure);
+            if (fallbackResult.success()) {
+                context.recordDecision(id, "Fallback succeeded after primary retries exhausted");
+                auditEventLog.record(AuditEvent.stage(workflowId, id.value(),
+                        AuditEventType.STAGE_FALLBACK_SUCCEEDED, fallbackResult.message()));
+            } else {
+                context.recordDecision(id, "Fallback also failed: " + fallbackResult.message());
+                auditEventLog.record(AuditEvent.stage(workflowId, id.value(),
+                        AuditEventType.STAGE_FALLBACK_FAILED, fallbackResult.message()));
+            }
+            return fallbackResult;
+        } catch (Exception e) {
+            log.error("Fallback for stage {} itself threw", id, e);
+            context.recordDecision(id, "Fallback threw: " + e.getMessage());
+            auditEventLog.record(AuditEvent.stage(workflowId, id.value(),
+                    AuditEventType.STAGE_FALLBACK_FAILED, String.valueOf(e.getMessage())));
+            return StageResult.failure("Fallback threw: " + e.getMessage(), e);
+        }
     }
 
     private StageResult executeWithRetries(StageDefinition definition, WorkflowContext context) {
