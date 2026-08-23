@@ -67,6 +67,14 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <release>17</release>
+                        <!--
+                            Without this, Spring MVC's @PathVariable/@RequestParam cannot infer
+                            the bound name from the parameter itself, and every use requires an
+                            explicit name; an easy thing to forget once, only discovered at
+                            request time. Keep explicit names anyway as defense in depth; this
+                            closes the class of bug at the source for the whole reactor.
+                        -->
+                        <parameters>true</parameters>
                     </configuration>
                 </plugin>
                 <plugin>

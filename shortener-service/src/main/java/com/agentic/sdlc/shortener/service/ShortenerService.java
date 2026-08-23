@@ -5,6 +5,7 @@ import com.agentic.sdlc.shortener.domain.LinkRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 public class ShortenerService {
@@ -25,12 +26,37 @@ public class ShortenerService {
     }
 
     public Link createLink(String originalUrl) {
-        String shortCode = reserveUniqueShortCode();
+        return createLink(originalUrl, null);
+    }
+
+    /**
+     * @param alias caller-requested short code, or {@code null}/blank to
+     *              have one generated. A non-blank alias that is already
+     *              taken throws {@link AliasAlreadyTakenException} rather
+     *              than silently falling back to a generated code -- the
+     *              caller asked for a specific code and is owed a clear
+     *              answer about whether they got it.
+     */
+    public Link createLink(String originalUrl, String alias) {
+        String shortCode = (alias != null && !alias.isBlank())
+                ? reserveAlias(alias)
+                : reserveGeneratedShortCode();
         Link link = new Link(shortCode, originalUrl, Instant.now());
         return repository.save(link);
     }
 
-    private String reserveUniqueShortCode() {
+    public Optional<Link> resolve(String shortCode) {
+        return repository.findByShortCode(shortCode);
+    }
+
+    private String reserveAlias(String alias) {
+        if (repository.existsByShortCode(alias)) {
+            throw new AliasAlreadyTakenException(alias);
+        }
+        return alias;
+    }
+
+    private String reserveGeneratedShortCode() {
         for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
             String candidate = generator.generate();
             if (!repository.existsByShortCode(candidate)) {

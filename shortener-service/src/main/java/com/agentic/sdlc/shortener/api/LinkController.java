@@ -1,14 +1,18 @@
 package com.agentic.sdlc.shortener.api;
 
 import com.agentic.sdlc.shortener.domain.Link;
+import com.agentic.sdlc.shortener.service.AliasAlreadyTakenException;
 import com.agentic.sdlc.shortener.service.ShortenerService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 public class LinkController {
@@ -23,9 +27,14 @@ public class LinkController {
 
     @PostMapping("/api/links")
     public ResponseEntity<CreateLinkResponse> createLink(@Valid @RequestBody CreateLinkRequest request) {
-        Link link = shortenerService.createLink(request.url());
+        Link link = shortenerService.createLink(request.url(), request.alias());
         CreateLinkResponse response = new CreateLinkResponse(
                 link.shortCode(), baseUrl + "/" + link.shortCode(), link.originalUrl(), link.createdAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @ExceptionHandler(AliasAlreadyTakenException.class)
+    public ResponseEntity<Map<String, String>> handleAliasTaken(AliasAlreadyTakenException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
     }
 }

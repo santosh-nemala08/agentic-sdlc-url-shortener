@@ -65,4 +65,48 @@ class ShortenerServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("unique short code");
     }
+
+    @Test
+    void createLinkWithAnAvailableAliasUsesItAsTheShortCode() {
+        ShortenerService service = new ShortenerService(new InMemoryLinkRepository(), new ShortCodeGenerator());
+
+        Link link = service.createLink("https://example.com", "my-alias");
+
+        assertThat(link.shortCode()).isEqualTo("my-alias");
+    }
+
+    @Test
+    void createLinkWithATakenAliasThrowsInsteadOfFallingBackToAGeneratedCode() {
+        InMemoryLinkRepository repository = new InMemoryLinkRepository();
+        repository.save(new Link("taken-alias", "https://already-here.example", java.time.Instant.now()));
+        ShortenerService service = new ShortenerService(repository, new ShortCodeGenerator());
+
+        assertThatThrownBy(() -> service.createLink("https://example.com", "taken-alias"))
+                .isInstanceOf(AliasAlreadyTakenException.class)
+                .hasMessageContaining("taken-alias");
+    }
+
+    @Test
+    void blankAliasFallsBackToAGeneratedCodeRatherThanBeingTreatedAsRequested() {
+        ShortenerService service = new ShortenerService(new InMemoryLinkRepository(), new ShortCodeGenerator());
+
+        Link link = service.createLink("https://example.com", "   ");
+
+        assertThat(link.shortCode()).isNotBlank().isNotEqualTo("   ");
+    }
+
+    @Test
+    void resolveFindsAPreviouslyCreatedLinkByItsShortCode() {
+        ShortenerService service = new ShortenerService(new InMemoryLinkRepository(), new ShortCodeGenerator());
+        Link created = service.createLink("https://example.com/target");
+
+        assertThat(service.resolve(created.shortCode())).contains(created);
+    }
+
+    @Test
+    void resolveReturnsEmptyForAnUnknownShortCode() {
+        ShortenerService service = new ShortenerService(new InMemoryLinkRepository(), new ShortCodeGenerator());
+
+        assertThat(service.resolve("nope0000")).isEmpty();
+    }
 }

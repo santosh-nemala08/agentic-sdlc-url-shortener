@@ -24,7 +24,7 @@ This repository has three modules:
 
 ## Status
 
-Built and tested so far (commits 1-9 of 20 — see
+Built and tested so far (commits 1-10 of 20 — see
 [`docs/commit-plan.md`](docs/commit-plan.md) for the full sequence):
 
 - The orchestration engine is **complete**: DAG execution with proven real
@@ -35,16 +35,19 @@ Built and tested so far (commits 1-9 of 20 — see
 - All three SDLC agents are built and wired into one governed pipeline
   (requirement analysis → task decomposition → architecture/design),
   running on the real engine, approval-gated at the design stage. 24 tests.
-- The shortener product has its first real endpoint: `POST /api/links`
-  (create/shorten), backed by an in-memory store behind a swappable
-  repository interface. 11 tests.
+- The shortener product has real create and redirect endpoints:
+  `POST /api/links` (with optional custom alias, 409 on collision) and
+  `GET /{code}` (302, not 301 — see `RedirectController`'s javadoc for
+  why), backed by an in-memory store behind a swappable repository
+  interface. 22 tests.
+- **73 tests pass across the whole reactor.**
 
-Still to come: redirect + custom alias, expiration, real persistence,
-click analytics, rate limiting, health checks, the shortener's own test
-suite, wiring the product's build/test/docs stages onto the orchestrator,
-the three required end-to-end scenarios (greenfield/brownfield/ambiguous),
-and the final documentation deliverables (architecture overview, setup
-instructions, testing approach/limitations, engineering summary).
+Still to come: expiration, real persistence, click analytics, rate
+limiting, health checks, wiring the product's build/test/docs stages onto
+the orchestrator, the three required end-to-end scenarios
+(greenfield/brownfield/ambiguous), and the final documentation
+deliverables (architecture overview, setup instructions, testing
+approach/limitations, engineering summary).
 
 ## Quick check
 
