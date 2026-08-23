@@ -2,6 +2,7 @@ package com.agentic.sdlc.shortener.api;
 
 import com.agentic.sdlc.shortener.domain.Link;
 import com.agentic.sdlc.shortener.service.AliasAlreadyTakenException;
+import com.agentic.sdlc.shortener.service.InvalidUrlException;
 import com.agentic.sdlc.shortener.service.ShortenerService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,14 +28,20 @@ public class LinkController {
 
     @PostMapping("/api/links")
     public ResponseEntity<CreateLinkResponse> createLink(@Valid @RequestBody CreateLinkRequest request) {
-        Link link = shortenerService.createLink(request.url(), request.alias());
+        Link link = shortenerService.createLink(request.url(), request.alias(), request.ttlSeconds());
         CreateLinkResponse response = new CreateLinkResponse(
-                link.shortCode(), baseUrl + "/" + link.shortCode(), link.originalUrl(), link.createdAt());
+                link.shortCode(), baseUrl + "/" + link.shortCode(), link.originalUrl(),
+                link.createdAt(), link.expiresAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @ExceptionHandler(AliasAlreadyTakenException.class)
     public ResponseEntity<Map<String, String>> handleAliasTaken(AliasAlreadyTakenException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidUrlException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidUrl(InvalidUrlException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
     }
 }
