@@ -1,6 +1,12 @@
 spring:
   application:
     name: shortener-service
+  # Activates AsyncConfig's @Profile("!test") exclusion, so click tracking runs synchronously
+  # on the calling thread during tests instead of on the real background thread pool -- see
+  # AsyncConfig's javadoc for why that matters (deterministic assertions, correct participation
+  # in @Transactional test rollback).
+  profiles:
+    active: test
   datasource:
     # In-memory, not the file-based DB main uses: tests must never touch (or be polluted by)
     # whatever is sitting in ./data/shortener from a real run. DB_CLOSE_DELAY=-1 keeps the

@@ -18,7 +18,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** See {@code LinkControllerTest}'s javadoc for why {@code @Transactional} is here. */
+/**
+ * See {@code LinkControllerTest}'s javadoc for why {@code @Transactional} is here. The "test"
+ * Spring profile (active via {@code src/test/resources/application.yml}) also disables
+ * {@code AsyncConfig}, so click tracking runs synchronously here -- see that class's javadoc.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -117,5 +121,33 @@ class RedirectControllerTest {
 
         mockMvc.perform(get("/expired1"))
                 .andExpect(status().isGone());
+    }
+
+    @Test
+    void successfulRedirectRecordsAClick() throws Exception {
+        String createBody = objectMapper.writeValueAsString(new CreateLinkRequest("https://example.com/tracked", "trackme"));
+        mockMvc.perform(post("/api/links").contentType("application/json").content(createBody))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/trackme")).andExpect(status().isFound());
+        mockMvc.perform(get("/trackme")).andExpect(status().isFound());
+
+        mockMvc.perform(get("/api/links/trackme/analytics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalClicks").value(2))
+                .andExpect(jsonPath("$.lastClickedAt").exists());
+    }
+
+    @Test
+    void expiredLinkHitDoesNotCountAsAClick() throws Exception {
+        Link expired = new Link("expired2", "https://example.com/gone",
+                Instant.now().minusSeconds(120), Instant.now().minusSeconds(60));
+        linkRepository.save(expired);
+
+        mockMvc.perform(get("/expired2")).andExpect(status().isGone());
+
+        mockMvc.perform(get("/api/links/expired2/analytics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalClicks").value(0));
     }
 }

@@ -24,7 +24,7 @@ This repository has three modules:
 
 ## Status
 
-Built and tested so far (commits 1-12 of 20 — see
+Built and tested so far (commits 1-13 of 20 — see
 [`docs/commit-plan.md`](docs/commit-plan.md) for the full sequence):
 
 - The orchestration engine is **complete**: DAG execution with proven real
@@ -35,21 +35,17 @@ Built and tested so far (commits 1-12 of 20 — see
 - All three SDLC agents are built and wired into one governed pipeline
   (requirement analysis → task decomposition → architecture/design),
   running on the real engine, approval-gated at the design stage. 24 tests.
-- The shortener product has create, redirect, expiration, validation, and
-  now real persistence: `POST /api/links` (optional custom alias, 409 on
-  collision; optional `ttlSeconds`), `GET /{code}` (302 while live, 410
-  once expired, 404 if unknown), a `UrlValidator` that rejects malformed
-  URLs, non-http(s) schemes, and self-referential links, and a
-  file-based H2 database behind Spring Data JPA -- durability verified by
-  actually restarting the running server and confirming a previously
-  created link still resolves, not just by asserting on an object.
-  `LinkRepository` stayed an interface throughout, so this swap from
-  commit 9's in-memory store touched no code in the service or API
-  layers. 39 tests.
-- **93 tests pass across the whole reactor.**
+- The shortener product has create, redirect, expiration, validation,
+  persistence, and now click analytics: `GET /api/links/{code}/analytics`
+  returns total clicks and last-clicked time. Click writes run off the
+  redirect's hot path (`@Async`, a dedicated bounded thread pool, never
+  blocks or fails the redirect itself) and use an atomic
+  `UPDATE ... SET x = x + 1` rather than a Java read-modify-write, so
+  concurrent clicks on the same link can't lose a count. 49 tests.
+- **103 tests pass across the whole reactor.**
 
-Still to come: click analytics, rate limiting, health checks, wiring the
-product's build/test/docs stages onto the orchestrator, the three required
+Still to come: rate limiting, health checks, wiring the product's
+build/test/docs stages onto the orchestrator, the three required
 end-to-end scenarios (greenfield/brownfield/ambiguous), and the final
 documentation deliverables (architecture overview, setup instructions,
 testing approach/limitations, engineering summary).
