@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.agentic.sdlc</groupId>
+        <artifactId>agentic-sdlc-parent</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>sdlc-agents</artifactId>
+    <packaging>jar</packaging>
+
+    <name>SDLC Agents</name>
+    <description>
+        The concrete, deterministic "agents" that reason about the SDLC
+        lifecycle for the URL shortener product -- requirement analysis,
+        task decomposition, architecture/design -- wired into a
+        DependencyGraph on top of the generic agentic-orchestrator engine.
+        Kept as a separate module deliberately: agentic-orchestrator has no
+        knowledge of SDLC concepts or the URL shortener domain, only of DAGs
+        and governance. This module is where that domain knowledge lives.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.agentic.sdlc</groupId>
+            <artifactId>agentic-orchestrator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.25.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

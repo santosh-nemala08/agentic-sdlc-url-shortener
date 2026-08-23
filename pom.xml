@@ -18,6 +18,7 @@
 
     <modules>
         <module>agentic-orchestrator</module>
+        <module>sdlc-agents</module>
         <module>shortener-service</module>
     </modules>
 

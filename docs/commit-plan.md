@@ -3,7 +3,9 @@
 This is the task decomposition for the assignment, expressed as a sequence of
 reviewable commits. Each commit is scoped to be independently buildable and
 reviewable. This file is updated if scope shifts (dynamic re-planning is a
-first-class concern of this project, including for the plan itself).
+first-class concern of this project, including for the plan itself) -- it
+was re-sliced from an original 12-commit plan into the 20 below to keep each
+review small.
 
 | # | Commit | Delivers |
 |---|--------|----------|
@@ -12,13 +14,21 @@ first-class concern of this project, including for the plan itself).
 | 3 | Orchestrator governance | Human approval gates, bounded retries, rollback, safe-stop, policy guardrails |
 | 4 | Orchestrator observability | Structured audit event log, reliability metrics (success rate, retry/rollback frequency, MTTR, latency), state persistence |
 | 5 | Re-planning + orchestrator tests | Upstream-change invalidation of downstream stages, unit test suite for the engine |
-| 6 | SDLC agent stages | Requirement analysis (ambiguity detection), task decomposition, architecture/design stages wired into a pipeline definition |
-| 7 | Shortener core API | Create/shorten, redirect, custom alias, expiration |
-| 8 | Shortener reliability + analytics | Persistence, click analytics, rate limiting, caching, health checks |
-| 9 | Shortener tests | Unit + integration tests for the service |
-| 10 | Greenfield + brownfield scenarios | End-to-end orchestrator runs building the service from scratch, then enhancing it |
-| 11 | Ambiguous scenario + guardrail demo | Underspecified requirement triggers clarification gate; a policy-violating requirement is blocked |
-| 12 | Documentation | Architecture overview, setup instructions, testing approach/limitations/trade-offs, final engineering summary |
+| 6 | Requirement Analysis agent | Intent parsing, ambiguity detection, clarifying questions, recorded assumptions |
+| 7 | Task Decomposition agent | Requirement -> actionable, dependency-ordered task list |
+| 8 | Architecture/Design agent + pipeline wiring | Design stage; all three agents wired into one SDLC `DependencyGraph` |
+| 9 | Shortener domain + create/shorten API | Core POST endpoint, in-memory store |
+| 10 | Shortener redirect API + custom alias | GET redirect endpoint, alias collision handling |
+| 11 | Shortener expiration + validation | TTL support, input validation |
+| 12 | Shortener persistence | Swap in-memory store for a real database |
+| 13 | Shortener click analytics | Per-link click tracking and summary endpoint |
+| 14 | Shortener reliability: rate limiting + caching | |
+| 15 | Shortener health checks | Actuator / liveness-readiness |
+| 16 | Shortener test suite | Unit + integration tests |
+| 17 | Greenfield scenario runner | Orchestrator builds the shortener end-to-end; audit trail as evidence |
+| 18 | Brownfield scenario | Orchestrator enhances the existing service; demonstrates codebase-impact reasoning |
+| 19 | Ambiguous + guardrail-block scenarios | Underspecified requirement triggers clarification gate; a policy-violating requirement is blocked |
+| 20 | Documentation | Architecture overview, setup instructions, testing approach/limitations/trade-offs, final engineering summary |
 
 ## Why this order
 
