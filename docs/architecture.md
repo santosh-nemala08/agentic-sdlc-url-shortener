@@ -32,8 +32,10 @@ The critical differentiator the assignment asks for. Framework-agnostic Java —
 - **`governance`** — `GovernancePolicy` (bundles approval requirement, retry policy, guardrails,
   fallback, rollback onto a stage), `PolicyGuardrail`/`GuardrailVerdict` (entry-gate vetoes),
   `ApprovalGate` (`AutoApprovalGate` for unattended runs, `ConsoleApprovalGate` for a real
-  human-in-the-loop pause), `RetryPolicy`, `FallbackHandler`, `RollbackHandler`,
-  `SafeStopController`.
+  human-in-the-loop pause, `AuthenticatedApprovalGate` for credentialed, identity-attributed
+  approval -- every decision is tied to a registered `Approver`, keyed by stage, and an
+  unrecognized credential is rejected regardless of what it claims to decide), `RetryPolicy`,
+  `FallbackHandler`, `RollbackHandler`, `SafeStopController`.
 - **`observability`** — `AuditEventLog` (`JsonAuditEventLog` appends a durable JSONL trail;
   `InMemoryAuditEventLog` for tests), `ReliabilityMetrics`/`MetricsCollector` (success rate,
   retry/rollback frequency, MTTR, latency), `WorkflowSnapshot`/`WorkflowStateStore`
@@ -111,7 +113,7 @@ bounded retries, with fallback and rollback available if it still fails.
     would, rather than needing a special case. See `ResilientLlmScenarioRunner` -- it completes
     successfully whether or not a key is present, and its audit trail honestly records which path
     ran.
-- **`scenario/`** — eight runnable demonstrations against the real engine, each producing a
+- **`scenario/`** — nine runnable demonstrations against the real engine, each producing a
   durable audit trail as evidence rather than a console log that vanishes with the process:
   - `GreenfieldScenarioRunner` — build from scratch, through the planning phase.
   - `BrownfieldScenarioRunner` — enhance the existing product, through the planning phase;
@@ -135,6 +137,12 @@ bounded retries, with fallback and rollback available if it still fails.
   - `CodeGenerationScenarioRunner` — runs `CodeGenerationPipeline` through a real compile-and-test
     cycle and a real re-plan, printing the `RePlanner`-computed stale set and the `STAGE_REUSED`
     audit events that prove the four planning/validation stages were reused, not re-executed.
+  - `AuthenticatedApprovalScenarioRunner` — runs `CodeGenerationPipeline` with
+    `AuthenticatedApprovalGate`: `architecture-design` and `implementation-validation` are each
+    approved by a different, named, credentialed `Approver`, and `release-gate` -- reached only
+    after `code-generation` and `code-testing` both genuinely succeed -- is presented with a
+    credential that matches no registered approver and is blocked there, proving the gate checks
+    identity rather than just counting calls.
 
 The default analyzer is deliberately **rule-based, not LLM-backed**: same input always produces
 the same output, with no external API key needed for a grader to run the standard test suite or

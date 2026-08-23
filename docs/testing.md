@@ -2,7 +2,7 @@
 
 ## Approach
 
-149 tests across the reactor (31 orchestrator, 61 agents, 57 shortener), all enabled, all passing
+156 tests across the reactor (38 orchestrator, 61 agents, 57 shortener), all enabled, all passing
 in CI on every push. Roughly:
 
 - **Orchestrator** — unit tests per governance primitive (retry, guardrail, approval, fallback,
@@ -11,7 +11,10 @@ in CI on every push. Roughly:
   assertions, not mocked), synchronization barriers, and skip-cascading when an upstream stage
   doesn't succeed. `RePlannerTest`/`WorkflowEngineRePlanTest` cover selective re-execution,
   including a chain of several consecutive reused stages, not just an isolated reused branch.
-  `PersistenceRoundTripTest` writes and re-reads a real `WorkflowSnapshot` from disk.
+  `AuthenticatedApprovalGateTest` covers credential-to-approver lookup, per-stage and default
+  presentations, an unrecognized credential being rejected regardless of the decision it claims,
+  and a full `WorkflowEngine` run proving a rejected authenticated approval actually blocks the
+  stage. `PersistenceRoundTripTest` writes and re-reads a real `WorkflowSnapshot` from disk.
 - **Agents** — each agent tested against representative inputs (`RequirementAnalysisAgentTest`
   checks specific ambiguity signals fire/don't fire; `TaskDecompositionAgentTest` checks the right
   feature tasks appear for the right keywords with the right dependency wiring;

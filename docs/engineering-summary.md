@@ -52,6 +52,11 @@ actually calling `RePlanner.computeStaleStages` and `executeIncremental`, not a 
 retry — proving the orchestrator's real re-planning machinery on a genuine requirement-to-code
 scenario, not just the synthetic demo it was originally built against.
 
+`AuthenticatedApprovalGate` makes every approval decision attributable to a specific, credentialed
+identity rather than an anonymous "yes," dispatching by stage so different stages can be signed off
+by different named approvers, and rejecting outright if the presented credential matches nobody
+registered — regardless of what decision it claims to carry.
+
 Documentation and CI were written last, once there was a finished system to describe accurately.
 
 `README.md`'s status section was kept accurate as work progressed, so the repository never claimed
@@ -94,5 +99,12 @@ to be more (or less) finished than it actually was at any point.
   generates real code, really compiles and executes it, and really recovers via the orchestrator's
   actual re-planning machinery — the one place in this project where "code" is more than a task
   label or a mapping to a file that already existed.
+- **Approvals attributable to a real identity, not an anonymous rubber stamp.**
+  `AuthenticatedApprovalGate` ties every decision to a registered `Approver`, records who and what
+  role approved (or rejected) each stage in the durable audit trail, and rejects any credential
+  that doesn't match a known approver regardless of what it claims to decide —
+  `AuthenticatedApprovalScenarioRunner` shows two different approvers signing off on two different
+  stages and a third stage blocked by an unrecognized credential, reached only after real upstream
+  work genuinely succeeded.
 - **CI enforcement**, not just local claims: every push and pull request against `main` runs the
   full reactor build and test suite via GitHub Actions (`.github/workflows/ci.yml`).

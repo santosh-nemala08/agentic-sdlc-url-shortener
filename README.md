@@ -7,12 +7,13 @@ This repository has three modules:
 
 - **`agentic-orchestrator/`** — the orchestration engine. Framework-agnostic
   Java: a dependency-graph-based stage executor with entry/exit gates, human
-  approval checkpoints, bounded retries/fallback/rollback/safe-stop, policy
-  guardrails, audit-grade JSON observability, reliability metrics (success
-  rate, retry/rollback frequency, MTTR, latency), and dynamic re-planning.
-  This is the critical differentiator the assignment asks for, and it has no
-  dependency on Spring or the URL shortener domain — it orchestrates work,
-  it does not know what the work is.
+  approval checkpoints (including credentialed, identity-attributed approval
+  via `AuthenticatedApprovalGate`), bounded retries/fallback/rollback/safe-stop,
+  policy guardrails, audit-grade JSON observability, reliability metrics
+  (success rate, retry/rollback frequency, MTTR, latency), and dynamic
+  re-planning. This is the critical differentiator the assignment asks for,
+  and it has no dependency on Spring or the URL shortener domain — it
+  orchestrates work, it does not know what the work is.
 - **`sdlc-agents/`** — the concrete SDLC "agents" (requirement analysis,
   task decomposition, architecture/design, plus implementation-validation,
   testing, and documentation-check) wired onto real `DependencyGraph`s and
@@ -103,7 +104,14 @@ Full docs: [architecture overview](docs/architecture.md) ·
   rather than re-running them, proven via `STAGE_REUSED` audit events. Selective re-execution
   against a chain of consecutive reused stages is covered by a dedicated regression test in
   `WorkflowEngineRePlanTest`.
-- **149 tests pass across the whole reactor, all enabled.** Click-counting concurrency correctness
+- `AuthenticatedApprovalGate` ties every approval to a specific, credentialed `Approver` — not an
+  anonymous "yes." `AuthenticatedApprovalScenarioRunner` runs `CodeGenerationPipeline` with three
+  approval-gated stages presented to three different credentials: two valid (a tech lead and a
+  product owner, each recorded by name and role in the decision log), and one that doesn't match
+  any registered approver — `release-gate` is reached only after `code-generation` and
+  `code-testing` both genuinely succeed, and is still blocked there, because an unauthenticated
+  approval attempt is never granted regardless of what it claims to decide.
+- **156 tests pass across the whole reactor, all enabled.** Click-counting concurrency correctness
   is covered by `JpaClickStatsRepositoryTest`'s sequential-behavior tests, with the design
   documented in `JpaClickStatsRepository`'s javadoc.
 - **CI** (`.github/workflows/ci.yml`) runs the full reactor build and test
@@ -135,6 +143,7 @@ Run any of these directly in IntelliJ (right-click → Run), or via Maven:
 | `LlmAmbiguousScenarioRunner.main` (needs `ANTHROPIC_API_KEY`) | `sdlc-agents` | The same dynamic clarification gate, driven by a real LLM call |
 | `ResilientLlmScenarioRunner.main` | `sdlc-agents` | LLM primary + governed fallback to the deterministic agent — succeeds either way |
 | `CodeGenerationScenarioRunner.main` | `sdlc-agents` | Real requirement → code → test → replan → code → test chain |
+| `AuthenticatedApprovalScenarioRunner.main` | `sdlc-agents` | Credentialed approvals: identity-attributed sign-off, and a rejected unrecognized credential |
 
 Shortener API (run `ShortenerServiceApplication`, then):
 

@@ -14,7 +14,7 @@ mvn install
 ```
 
 This builds `agentic-orchestrator`, `sdlc-agents`, and `shortener-service` in dependency order and
-runs every module's test suite (149 tests). CI (`.github/workflows/ci.yml`) runs this same
+runs every module's test suite (156 tests). CI (`.github/workflows/ci.yml`) runs this same
 `mvn verify` on every push and pull request against `main`.
 
 ## Run the orchestrator/agent demos
@@ -37,6 +37,7 @@ mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.
 mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.GuardrailBlockScenarioRunner -Dexec.classpathScope=test
 mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.FullLifecycleScenarioRunner -Dexec.classpathScope=test
 mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.CodeGenerationScenarioRunner -Dexec.classpathScope=test
+mvn -pl sdlc-agents exec:java -Dexec.mainClass=com.agentic.sdlc.agents.scenario.AuthenticatedApprovalScenarioRunner -Dexec.classpathScope=test
 ```
 
 `-Dexec.classpathScope=test` is needed for the `sdlc-agents` demos because `WorkflowEngine` and
@@ -61,6 +62,12 @@ computes a real stale set and re-plans, and attempt 2 really passes. Unlike
 `FullLifecycleScenarioRunner`, this one needs no Maven subprocess and finishes in well under a
 second -- it's also exercised as a real assertion-based test in the normal suite
 (`CodeGenerationPipelineTest`), not just this printed demo.
+
+`AuthenticatedApprovalScenarioRunner` swaps in `AuthenticatedApprovalGate` for `CodeGenerationPipeline`'s
+three approval-gated stages: two are approved by different, named, credentialed approvers (recorded
+by identity and role in the decision log), and the third is presented with a credential that
+matches nobody registered -- blocked there even though the real code-generation and code-testing
+stages ahead of it both genuinely succeeded.
 
 ### Running the LLM-backed requirement analyzer
 
