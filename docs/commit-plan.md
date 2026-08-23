@@ -25,7 +25,7 @@ review small.
 | 14 | Shortener reliability | Rate limiting, response caching, real health checks (`/actuator/health`), replacing the placeholder `/status` |
 | 15 | Shortener test-suite hardening | Fill remaining gaps across the shortener test suite |
 | 16 | Greenfield + brownfield scenarios | Orchestrator builds the shortener end-to-end, then enhances it; audit trail as evidence; codebase-impact reasoning demonstrated |
-| 17 | Ambiguous + guardrail-block scenarios | Underspecified requirement triggers clarification gate; a policy-violating requirement is blocked |
+| 17 | Ambiguous + guardrail-block scenarios | `AmbiguousScenarioRunner` dynamically re-plans governance from the requirement analyzer's own ambiguity score; `SecretLeakageGuardrail` + `GuardrailBlockScenarioRunner` demonstrate a real policy veto (`STAGE_BLOCKED`, cascading `SKIPPED`) with audit-trail evidence |
 | 18 | Documentation | Architecture overview, setup instructions, testing approach/limitations/trade-offs, final engineering summary |
 
 Re-sliced again at commit 14: the original 20-commit plan's items 14-20
@@ -48,18 +48,18 @@ commit rather than deferred.
   reviewed as ordinary Spring Boot code independent of the orchestration
   story -- though see commit 9, which folded in a governance fix (fallback)
   found while auditing progress against the assignment PDF partway through.
-- The scenarios (17-19) come last and are where all three pieces meet: the
+- The scenarios (16-17) come last and are where all three pieces meet: the
   orchestrator, driving the agents, builds and enhances the actual product
-  to demonstrate greenfield, brownfield, and ambiguous-requirement handling
-  end to end.
-- Documentation (20) is written last so it describes what was actually
+  to demonstrate greenfield, brownfield, ambiguous-requirement, and
+  guardrail-block handling end to end.
+- Documentation (18) is written last so it describes what was actually
   built, not what was planned.
 
 ## Documentation policy
 
 The big deliverables (architecture overview, setup instructions, testing
 approach/limitations, final engineering summary) are written once in commit
-20, once there is a finished system to document accurately rather than a
+18, once there is a finished system to document accurately rather than a
 moving target. In the meantime, `README.md`'s status section is kept
 current after every commit so the repository never reads as more (or less)
 finished than it actually is.
